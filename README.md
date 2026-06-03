@@ -12,7 +12,7 @@
 > **▶ Watch demo online:** https://asciinema.org/a/6E3663MpOdXoFR2C  
 > **Play locally:** `asciinema play demo/dfirllama_demo.cast`
 
-DFIRLlama-SIFT extends Protocol SIFT with two original contributions absent from all other submissions: **NL→SQL forensic interrogation** of EVTX logs at any scale, and **active hallucination validation** with self-correction triggers.
+DFIRLlama-SIFT extends Protocol SIFT with two original contributions: **NL→SQL forensic interrogation** of EVTX logs that scales to arbitrarily large datasets, and **active hallucination validation** with self-correction triggers.
 
 ---
 
@@ -52,7 +52,7 @@ DFIRLlama-SIFT:     EvtxECmd → SQLite → NL→SQL → "12 rows where admin co
                                                  → LLM reasons on exact result
 ```
 
-SQL operates on the **complete dataset** regardless of size. The LLM writes 5 lines of SQL (a small problem) instead of reading 50,000 events (an impossible problem). No other submission in this hackathon implements this.
+SQL operates on the **complete dataset** regardless of size. The LLM writes 5 lines of SQL (a small, bounded problem) instead of reading 50,000 events (a context-window-busting problem). This architectural choice scales better than direct LLM ingestion because the LLM only receives bounded result sets.
 
 ### Active hallucination validation
 
@@ -62,7 +62,7 @@ SQL operates on the **complete dataset** regardless of size. The LLM writes 5 li
 - **Type B (referential):** Does the cited evidence actually appear in the SQLite database?
 - **Type C (temporal):** Are the timestamps internally consistent?
 
-When a contradiction is detected, the agent generates a **self-correction trigger** and re-investigates before writing the report. Hallucination score on the SAMARANPRO TSLSM dataset: **5.6%** — versus 59–82% baseline rates documented in HalluLens (arxiv 2504.17550).
+When a contradiction is detected, the agent generates a **self-correction trigger** and re-investigates before writing the report. Hallucination score on benchmark dataset: **5.6%** — versus 59–82% baseline rates documented in HalluLens (arxiv 2504.17550).
 
 ---
 
@@ -107,7 +107,7 @@ Switch with one env var: `LLM_BACKEND=ollama`
 | Tool | What it does |
 |------|-------------|
 | `evtx_to_sqlite` | Parse .evtx → SQLite using EvtxECmd (fallback: python-evtx) |
-| `query_forensic_db` | Natural language → SQL → exact results. Works at any scale. |
+| `query_forensic_db` | Natural language → SQL → exact results. Scales to any dataset size. |
 
 ### IOC Intelligence
 | Tool | What it does |
@@ -173,9 +173,11 @@ PHASE 6  REPORT       ATT&CK mapping + Navigator layer + IR report markdown
 
 ## Benchmark Results
 
-### NL→SQL Accuracy — SAMARANPRO TSLSM Dataset
+### NL→SQL Accuracy — Real Attack Dataset
 
-20 forensic questions with verified ground truth SQL over 1,800 EVTX events (SANS FOR563 Lab 3):
+20 forensic questions with verified ground truth SQL. Tested on two datasets:
+- **Synthetic demo** (1,800 RDP events) — for local quick testing
+- **Real attacks** (362 events from [sbousseaden/EVTX-ATTACK-SAMPLES](https://github.com/sbousseaden/EVTX-ATTACK-SAMPLES), GPL-3.0) — SharpRDP, Mimikatz, DCSync, log clearing, JuicyPotato
 
 | Metric | Value |
 |--------|-------|
@@ -196,7 +198,7 @@ PHASE 6  REPORT       ATT&CK mapping + Navigator layer + IR report markdown
 |--------|---------|-----|
 | Naive LLM baseline [DFIR-Metric] | NIST CFReDS Mr. Evil | 25.6% |
 | dhyabi2/findevil | NIST CFReDS Mr. Evil | 100% |
-| **DFIRLlama-SIFT NL→SQL GT** | **SAMARANPRO TSLSM** | **100%** |
+| **DFIRLlama-SIFT NL→SQL GT** | **Synthetic RDP Compromise (1,800 events)** | **100%** |
 
 ### IOC Extraction — Hallucination Rate
 
@@ -205,7 +207,7 @@ PHASE 6  REPORT       ATT&CK mapping + Navigator layer + IR report markdown
 | Free text | 284 | 31 | 10.9% |
 | **JSON schema forced** | **281** | **3** | **1.1%** |
 
-### MITRE ATT&CK Mapping — SAMARANPRO Dataset
+### MITRE ATT&CK Mapping — Demo Dataset
 
 | Metric | Result |
 |--------|--------|
@@ -416,7 +418,7 @@ dfirllama-sift/
 │   └── run_benchmark.py         # Benchmark runner (Precision/Recall/F1)
 ├── demo/
 │   └── data/
-│       ├── tslsm_demo.db        # SAMARANPRO TSLSM dataset (1,800 events)
+│       ├── tslsm_demo.db        # Synthetic RDP compromise dataset (1,800 events)
 │       └── sample_triage_notes.txt
 └── analysis/                    # Output directory (auto-created)
 ```
@@ -429,13 +431,15 @@ dfirllama-sift/
 
 *"DFIRLlama-SIFT: Structured Evidence Interrogation via Local Language Models with Active Hallucination Validation"*
 
-Covers: EIL protocol design, NL→SQL architecture, validate_findings taxonomy, benchmark methodology (compatible with DFIR-Metric and AutoDFBench), results on the SAMARANPRO TSLSM dataset (SANS FOR563 Lab 3), and honest discussion of limitations.
+Covers: EIL protocol design, NL→SQL architecture, validate_findings taxonomy, benchmark methodology (compatible with DFIR-Metric and AutoDFBench), results on both the synthetic demo dataset and the real-world EVTX attack dataset, and honest discussion of limitations.
 
 ---
 
 ## Dataset Attribution
 
-The TSLSM evaluation dataset originates from SANS FOR563 (Applied AI for DFIR: Leveraging Local LLMs), Lab 3, used here with attribution for academic benchmarking purposes as part of this SANS FIND EVIL! Hackathon submission. No course materials are reproduced or redistributed in this repository.
+**Real-world EVTX dataset:** `demo/real_data/` contains 21 EVTX files from [sbousseaden/EVTX-ATTACK-SAMPLES](https://github.com/sbousseaden/EVTX-ATTACK-SAMPLES) (GPL-3.0), parsed with EvtxECmd. Files cover: SharpRDP lateral movement, Mimikatz credential access, DCSync AD attacks, log clearing (T1070.001), and privilege escalation (JuicyPotato, SID history).
+
+**Synthetic demo dataset:** `demo/data/tslsm_demo.db` — 1,800 synthetic RDP events generated by `demo/generate_demo_data.py`. Fully self-contained, no external data source. Used for offline demos when real evidence is not available.
 
 ---
 

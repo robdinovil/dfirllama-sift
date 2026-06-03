@@ -376,7 +376,7 @@ python3 webui.py
 | Sección | Qué hace |
 |---------|----------|
 | Evidence Interrogation Loop | Lanza el EIL completo. Pon la ruta del caso y click en "Run EIL" |
-| Demo mode | Usa el dataset SAMARANPRO incluido. No necesitas evidencia propia |
+| Demo mode | Usa el dataset sintético incluido. No necesitas evidencia propia |
 | NL→SQL Query | Escribe una pregunta en lenguaje natural sobre cualquier EVTX |
 | IOC Analyzer | Investiga una IP, dominio, hash o comando PowerShell |
 
@@ -512,7 +512,7 @@ ls ./analysis/
 ### Caso 5: Demo rápida para mostrar el sistema (sin evidencia real)
 
 ```bash
-# Modo demo — usa el dataset SAMARANPRO incluido
+# Demo mode — uses the included synthetic RDP compromise dataset
 python3 agent.py demo/data --demo
 
 # O desde Web UI con botón "Demo mode"

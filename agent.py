@@ -729,7 +729,7 @@ Ejemplos:
             print(f"{RED}[!] Demo DB no encontrada: {demo_db}{RESET}")
             sys.exit(1)
         case_dir = str(demo_db.parent)
-        print(f"{CYAN}[DEMO] Usando dataset SAMARANPRO TSLSM: {demo_db}{RESET}")
+        print(f"{CYAN}[DEMO] Usando dataset demo RDP compromise: {demo_db}{RESET}")
 
     if not Path(case_dir).exists():
         print(f"{RED}[!] Directorio no encontrado: {case_dir}{RESET}")

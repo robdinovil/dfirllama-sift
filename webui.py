@@ -220,7 +220,7 @@ HTML = """<!DOCTYPE html>
         ▶ Run EIL (full investigation)
       </button>
       <button class="btn btn-secondary" style="margin-top:6px" id="btn-demo" onclick="runDemo()">
-        🎬 Demo mode (SAMARANPRO dataset)
+        🎬 Demo mode (RDP compromise dataset)
       </button>
     </div>
 
@@ -283,7 +283,7 @@ HTML = """<!DOCTYPE html>
 
 Shortcuts:
   • Run EIL      → full autonomous investigation (6 phases)
-  • Demo mode    → uses SAMARANPRO TSLSM dataset (FOR563 Lab 3)
+  • Demo mode    → uses synthetic RDP compromise dataset (1,800 events)
   • NL→SQL       → ask forensic questions in natural language
   • IOC Analyzer → investigate IPs, domains, hashes with ReAct agent
 

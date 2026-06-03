@@ -65,7 +65,7 @@ if [ ! -f "${SETTINGS}" ]; then
       "command": "python3",
       "args": ["${SERVER_PATH}"],
       "env": {
-        "LLM_BACKEND": "claude",
+        "LLM_BACKEND": "auto",
         "EVIDENCE_ROOT": "/cases",
         "AUDIT_LOG": "/tmp/dfirllama_audit.log"
       }
@@ -88,7 +88,7 @@ else
       "command": "python3",
       "args": ["${SERVER_PATH}"],
       "env": {
-        "LLM_BACKEND": "claude",
+        "LLM_BACKEND": "auto",
         "EVIDENCE_ROOT": "/cases",
         "AUDIT_LOG": "/tmp/dfirllama_audit.log"
       }

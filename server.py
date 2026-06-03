@@ -11,8 +11,8 @@ Uso:
     python3 server.py --http :8080     # HTTP mode (testing)
 
 Variables de entorno:
-    LLM_BACKEND         claude | ollama  (default: claude)
-    ANTHROPIC_API_KEY   requerido si LLM_BACKEND=claude
+    LLM_BACKEND         auto | claude-cli | claude-api | ollama  (default: auto)
+    ANTHROPIC_API_KEY   required if LLM_BACKEND=claude-api
     OLLAMA_BASE_URL     default: http://localhost:11434/v1
     OLLAMA_MODEL        default: mistral:7b
     EVIDENCE_ROOT       directorio raíz de evidencia (guardrail)
@@ -450,7 +450,7 @@ def get_status() -> str:
 
     return (
         f"DFIRLlama-SIFT MCP Server\n"
-        f"LLM Backend: {os.getenv('LLM_BACKEND', 'claude')} ({get_model_name()})\n"
+        f"LLM Backend: {os.getenv('LLM_BACKEND', 'auto')} ({get_model_name()})\n"
         f"Evidence Root: {os.getenv('EVIDENCE_ROOT', '/cases')}\n"
         f"SIFT Tools: {tools_status}\n"
     )
@@ -503,7 +503,7 @@ if __name__ == "__main__":
     args = p.parse_args()
 
     print(f"[*] DFIRLlama-SIFT MCP Server", file=sys.stderr)
-    print(f"[*] LLM Backend: {os.getenv('LLM_BACKEND', 'claude')}", file=sys.stderr)
+    print(f"[*] LLM Backend: {os.getenv('LLM_BACKEND', 'auto')}", file=sys.stderr)
     print(f"[*] Transport: {args.transport}", file=sys.stderr)
 
     if args.http:

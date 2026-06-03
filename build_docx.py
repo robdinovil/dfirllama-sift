@@ -409,7 +409,7 @@ def build():
         ['Sección', 'Qué hace'],
         [
             ['▶ Run EIL', 'Lanza investigación completa. Pon la ruta del caso y click.'],
-            ['🎬 Demo mode', 'Usa el dataset SAMARANPRO incluido. No necesitas evidencia propia.'],
+            ['🎬 Demo mode', 'Usa el dataset sintético incluido. No necesitas evidencia propia.'],
             ['⚡ NL→SQL Query', 'Escribe una pregunta en lenguaje natural, ve el SQL generado y resultados.'],
             ['🔍 IOC Analyzer', 'Investiga una IP, dominio o hash con el agente ReAct.'],
             ['Pestaña Terminal', 'El EIL corriendo en tiempo real (streaming).'],
@@ -683,7 +683,7 @@ def build():
         'DFIRLlama-SIFT v1.0  |  SANS FIND EVIL! Hackathon 2026\n'
         'DFIRLlama Research\n'
         'MIT License — TLP:CLEAR\n'
-        'Dataset: SANS FOR563 Lab 3 (con atribución, para benchmarking académico)'
+        'Dataset: Synthetic RDP compromise + sbousseaden/EVTX-ATTACK-SAMPLES (GPL-3.0)'
     )
     r.font.size = Pt(10)
     r.font.color.rgb = RGBColor(0x8b, 0x94, 0x9e)

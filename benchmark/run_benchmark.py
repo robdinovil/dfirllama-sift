@@ -2,8 +2,8 @@
 """
 DFIRLlama-SIFT — Benchmark de Accuracy
 ========================================
-Mide la precisión del motor NL→SQL (query_evtx_nl_tool) sobre el dataset
-SAMARANPRO TSLSM usando 20 preguntas forenses con respuestas de ground truth conocidas.
+Mide la precisión del motor NL→SQL (query_evtx_nl_tool) sobre datasets
+forenses con respuestas de ground truth conocidas.
 
 Genera métricas compatibles con DFIR-Metric (arxiv 2505.19973) y AutoDFBench
 (arxiv 2512.16965): Precision, Recall, F1, Execution Accuracy, Hallucination Rate.
@@ -175,7 +175,7 @@ def run_benchmark(db_path: str, model: str = "qwen2.5:14b",
                   dry_run: bool = False, output_file: str | None = None):
 
     print(f"\n{CYAN}{BOLD}DFIRLlama-SIFT — NL→SQL Accuracy Benchmark{RESET}")
-    print(f"{CYAN}Dataset: SAMARANPRO TSLSM | {DATASET_METADATA['total_rows']} eventos{RESET}")
+    print(f"{CYAN}Dataset: {DATASET_METADATA['name']} | {DATASET_METADATA['total_rows']} eventos{RESET}")
     print(f"{CYAN}Modelo:  {model} | DB: {db_path}{RESET}")
     if dry_run:
         print(f"{YELLOW}[DRY RUN] — ejecutando SQL de ground truth directamente{RESET}")

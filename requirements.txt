@@ -7,3 +7,5 @@ pandas>=2.0.0
 python-whois>=0.9.0
 yara-python>=4.5.0
 requests>=2.31.0
+flask>=3.0.0
+python-evtx>=0.8.1

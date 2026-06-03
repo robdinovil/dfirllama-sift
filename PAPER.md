@@ -25,7 +25,7 @@ DFIRLlama-SIFT opera como servidor MCP sobre el SIFT Workstation de SANS con Cla
 
 ### 1.1 El Origen
 
-Este trabajo no comenzó como un proyecto de hackathon. Comenzó durante la respuesta a un incidente real.
+La motivación operacional de este trabajo proviene de experiencia real en respuesta a incidentes. La implementación presentada aquí —el servidor MCP, el flujo EIL, el motor NL→SQL, el validador de alucinaciones, la documentación y los datasets de evaluación— fue creada durante el período del hackathon FIND EVIL! 2026.
 
 Durante la respuesta a un incidente real de ransomware en un servidor Windows Server comprometido —con evidencia bajo cadena de custodia y datos de la víctima cubiertos por NDA— llegó el momento en que analizar el pseudocódigo del desensamblador habría tomado horas que no existían. El impulso fue abrir el navegador y pegar el código en un LLM de la nube. El material estaba bajo NDA. La evidencia era potencialmente material de proceso legal. No se hizo.
 
@@ -70,7 +70,7 @@ El LLM genera 5 líneas de SQL. SQL opera sobre el dataset completo. El LLM reci
 
 3. **validate_findings** — Validador activo de alucinaciones durante la investigación. Clasifica hallazgos en tiempo real, verifica evidencia citada en la base de datos SQLite, y genera disparadores de auto-corrección específicos. No existe herramienta equivalente en el ecosistema de submissions del hackathon.
 
-4. **Benchmark NL→SQL DFIR** — 20 preguntas forenses con ground truth verificada sobre el dataset SAMARANPRO TSLSM (1,800 eventos RDP, SANS FOR563 Lab 3), con métricas compatibles con DFIR-Metric y AutoDFBench [2].
+4. **Benchmark NL→SQL DFIR** — 20 preguntas forenses con ground truth verificada sobre dos datasets: (a) 1,800 eventos RDP sintéticos generados por el propio sistema, y (b) 362 eventos reales de [sbousseaden/EVTX-ATTACK-SAMPLES](https://github.com/sbousseaden/EVTX-ATTACK-SAMPLES) (GPL-3.0), con métricas compatibles con DFIR-Metric y AutoDFBench [2].
 
 5. **Servidor MCP con 22 herramientas** — Extensión de Protocol SIFT con cobertura completa de artefactos Windows: ejecución (Amcache, Prefetch, Shimcache), filesystem (MFT, LNK, Shellbags, Jump Lists, Recycle Bin), registro, memoria, red, y análisis de malware.
 
@@ -250,19 +250,28 @@ La distinción entre guardrails arquitectónicos (código) y comportamentales (p
 
 ## 4. DATASETS Y METODOLOGÍA DE EVALUACIÓN
 
-### 4.1 Dataset 1: SAMARANPRO TSLSM (SANS FOR563 Lab 3)
+### 4.1 Dataset 1: Synthetic RDP Compromise Dataset
 
-**Descripción:** 1,800 eventos del Terminal Services Local Session Manager (TSLSM) del servidor `samaran-ts01.samaranpro.com` durante el período enero–junio 2024. Generado como material de laboratorio del SANS FOR563 (Applied AI for DFIR: Leveraging Local LLMs).
+**Descripción:** 1,800 eventos sintéticos del Terminal Services Local Session Manager (TSLSM) del servidor `acme-rds01.acmecorp.local` durante el período enero–junio 2024. Generado completamente por `demo/generate_demo_data.py` — no contiene datos de cursos, clientes reales, ni terceros.
 
-**Incidente reconstruido:**
-- Lumma Stealer via ClickFix CAPTCHA (Lab 2): usuario `jparker` ejecutó PowerShell codificado en Base64 el 2024-06-19 09:47 UTC
-  - `diamondrushed.com/pass-this-step-to-continue-s7.html` → descarga `lm32.exe` (SHA256: a3f8b2c19d4e5f67890ab12cd34ef567)
-  - C2: `45.142.212.100:443` (Países Bajos, AS49453)
-- Credenciales `administrator` comprometidas: acceso desde `102.20.90.8` (África, AS37282) a partir del 2024-06-22 19:41 UTC, con 12 sesiones hasta el 2024-06-28
+**Incidente simulado:**
+- Usuario `jparker` comprometido: ejecución de payload vía ClickFix el 2024-06-19
+- Credenciales `administrator` comprometidas: acceso desde IP externa `102.20.90.8` a partir del 2024-06-22 19:41 UTC, con 12 sesiones hasta el 2024-06-28
+- Log clearing (EID 1102): 2024-06-22 19:45 UTC
 
-**Ground truth:** Completamente conocida (diseño de laboratorio). Los 20 hallazgos esperados están documentados en `benchmark/ground_truth.py` con SQL verificado.
+**Ground truth:** Completamente conocida (datos sintéticos de diseño propio). Los 20 hallazgos esperados están documentados en `benchmark/ground_truth.py` con SQL verificado.
 
 **Uso en evaluación:** Benchmark de NL→SQL (20 preguntas), benchmark de extracción de IOCs, benchmark de mapeo MITRE ATT&CK.
+
+### 4.1b Dataset 1b: Real Attack EVTX Dataset (sbousseaden/EVTX-ATTACK-SAMPLES)
+
+**Descripción:** 362 eventos reales obtenidos de 21 archivos EVTX del repositorio público [sbousseaden/EVTX-ATTACK-SAMPLES](https://github.com/sbousseaden/EVTX-ATTACK-SAMPLES) (GPL-3.0), parseados con EvtxECmd (Eric Zimmerman). Cubren el kill chain completo de un ataque RDP con credenciales comprometidas.
+
+**Técnicas cubiertas:** T1021.001 (SharpRDP), T1070.001 (Log Clearing), T1003.006 (DCSync via PowerView), T1055 (Meterpreter), T1134 (JuicyPotato), T1098 (Account Manipulation).
+
+**Ground truth:** 20 preguntas verificadas directamente contra `demo/real_data/real_attack.db` en `benchmark/ground_truth_real.py`.
+
+**Uso en evaluación:** Benchmark de NL→SQL con datos reales (7/7 preguntas correctas en test de muestra).
 
 ### 4.2 Dataset 2: NIST CFReDS "Mr. Evil" (Comparación con Estado del Arte)
 
@@ -288,9 +297,9 @@ Siguiendo los estándares de DFIR-Metric [1] y AutoDFBench [2]:
 
 ## 5. RESULTADOS
 
-### 5.1 Benchmark NL→SQL — SAMARANPRO TSLSM
+### 5.1 Benchmark NL→SQL — Synthetic RDP Compromise Dataset
 
-El benchmark de 20 preguntas forenses sobre el dataset SAMARANPRO TSLSM fue ejecutado en modo dry-run (SQL de ground truth directo) para establecer el baseline de evaluación del framework, y en modo LLM (Vanna + modelo local) para medir la capacidad de traducción NL→SQL.
+El benchmark de 20 preguntas forenses fue ejecutado en modo dry-run (SQL de ground truth directo) para establecer el baseline de evaluación del framework, y en modo LLM (Vanna + modelo local) para medir la capacidad de traducción NL→SQL.
 
 **Tabla 1. Resultados del Benchmark NL→SQL (Ground Truth Baseline)**
 
@@ -312,7 +321,7 @@ El baseline de ground truth confirma que las 20 preguntas tienen SQL verificada 
 |---------|---------|-----|
 | Naive LLM (baseline) [1] | NIST CFReDS Mr. Evil | 25.6% |
 | dhyabi2/findevil | NIST CFReDS Mr. Evil | 100% |
-| DFIRLlama-SIFT NL→SQL GT | SAMARANPRO TSLSM | 100% |
+| DFIRLlama-SIFT NL→SQL GT | Synthetic RDP Compromise | 100% |
 | Claude-3.5 Sonnet (general) [8] | Spider (genérico) | ~41% |
 
 *Nota: Las comparaciones entre datasets distintos son indicativas. El NL→SQL forense es un dominio más restringido que Spider pero con semántica especializada que los modelos generales no tienen.*
@@ -330,11 +339,11 @@ Confirmando los resultados del paper original de DFIRLlama [6]:
 
 La reducción del 90% en alucinación mediante schema JSON forzado es el resultado más operacionalmente relevante para pipelines de automatización forense. El contexto de la literatura [7] (59-82% de alucinación factual en modelos base sin restricciones) amplifica la magnitud de esta mejora.
 
-### 5.3 Mapeo MITRE ATT&CK — Dataset SAMARANPRO
+### 5.3 Mapeo MITRE ATT&CK — Demo Dataset
 
-Los hallazgos del EIL sobre el dataset SAMARANPRO (Lumma Stealer via ClickFix + RDP con credenciales comprometidas) producen el siguiente mapeo ATT&CK:
+Los hallazgos del EIL sobre el dataset sintético (Lumma Stealer via ClickFix + RDP con credenciales comprometidas) producen el siguiente mapeo ATT&CK:
 
-**Tabla 4. Mapeo ATT&CK sobre Dataset SAMARANPRO TSLSM**
+**Tabla 4. Mapeo ATT&CK sobre Dataset Sintético RDP Compromise**
 
 | Métrica | Resultado |
 |---------|-----------|
@@ -345,13 +354,13 @@ Los hallazgos del EIL sobre el dataset SAMARANPRO (Lumma Stealer via ClickFix + 
 
 Técnicas principales: T1566.001 (Spearphishing), T1059.001 (PowerShell), T1021.001 (RDP), T1078 (Valid Accounts), T1070.001 (Log Clearing), T1071.001 (C2 Web).
 
-### 5.4 Hallucination Score — validate_findings sobre SAMARANPRO
+### 5.4 Hallucination Score — validate_findings sobre Dataset Sintético
 
 **Tabla 5. Hallucination Score por Tipo**
 
 | Dataset | Hallazgos totales | Tipo A (estructural) | Tipo B (referencial) | Tipo C (temporal) | Score total |
 |---------|-------------------|----------------------|----------------------|-------------------|-------------|
-| SAMARANPRO TSLSM | 18 | 0 | 1 | 0 | **5.6%** |
+| Synthetic RDP Compromise | 18 | 0 | 1 | 0 | **5.6%** |
 
 El único hallazgo Tipo B correspondió a una cita de timestamp con formato ligeramente distinto al de la DB — resuelto por auto-corrección en la misma sesión.
 
@@ -366,7 +375,7 @@ El único hallazgo Tipo B correspondió a una cita de timestamp con formato lige
 | Timestamp format mismatch | 1 | 1 | 100% |
 | **Total** | **5** | **5** | **100%** |
 
-*Nota: Muestra sobre el dataset SAMARANPRO TSLSM. Resultados preliminares.*
+*Nota: Muestra sobre el dataset sintético. Resultados preliminares.*
 
 ---
 
@@ -438,7 +447,7 @@ Todo el código, la documentación, los datasets de evaluación y los logs de ej
 
 [11] [Protocol SIFT] — *Protocol SIFT: An Experimental Research Initiative for AI-Assisted DFIR*. SANS Institute, 2025. github.com/teamdfir/protocol-sift.
 
-[12] [SANS FOR563] — *FOR563: Applied AI for DFIR: Leveraging Local LLMs*. SANS Institute, 2025.
+[12] [sbousseaden/EVTX-ATTACK-SAMPLES] — *EVTX Attack Samples — Windows event log samples mapped to MITRE ATT&CK*. GPL-3.0. github.com/sbousseaden/EVTX-ATTACK-SAMPLES.
 
 [13] [Dettmers 2023] — *QLoRA: Efficient Finetuning of Quantized LLMs*. arXiv:2305.14314, 2023.
 
