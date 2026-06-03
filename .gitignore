@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+
+# Entorno
+.env
+*.env.local
+venv/
+.venv/
+
+# Outputs de análisis (nunca commitear evidencia o resultados)
+analysis/
+exports/
+reports/
+/tmp/
+
+# Bases de datos vectoriales (se regeneran)
+chroma_vanna_demo/
+.chroma/
+*.chromadb
+
+# Audit logs
+*.log
+forensic_audit.log
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# macOS
+.DS_Store
+
+# Benchmark results (se regeneran con --dry-run)
+benchmark_results_*.json
+
+# Credenciales y claves
+*.key
+*.pem
+secrets.json

@@ -1,0 +1,9 @@
+fastmcp>=3.4.0
+mcp>=1.27.2
+anthropic>=0.105.0
+openai>=1.0.0
+vanna[chromadb]>=2.0.0
+pandas>=2.0.0
+python-whois>=0.9.0
+yara-python>=4.5.0
+requests>=2.31.0

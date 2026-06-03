@@ -1,0 +1,58 @@
+NOTAS DE TRIAGE — Incidente IR-2026-042
+Analista: [redacted]
+Fecha: 2026-03-14 04:30 UTC
+
+HOST COMPROMETIDO: WKSTN-MKTG-07 (192.168.1.45)
+Usuario afectado: jperez@empresa.com
+
+HALLAZGOS INICIALES
+===================
+
+1. VECTOR DE ACCESO INICIAL
+   - Documento Word malicioso encontrado en C:\Users\jperez\Downloads\factura_marzo_2026.doc
+   - Trust Records confirma ejecución de macros: FF FF FF 7F
+   - Entrada en TSLSM (TypedURLsMRU) para la ruta del documento
+   - Prefetch de WINWORD.EXE: 2026-03-14 03:17:43 UTC
+
+2. EJECUCIÓN
+   - Macro ejecutó: cmd.exe /c powershell.exe -EncodedCommand <base64_largo>
+   - PowerShell decodificado: descarga de hxxps://stage.update-cdn[.]net/stg2/payload.ps1
+   - EID 4688 (creación de proceso): cmd.exe → powershell.exe a las 03:18:02 UTC
+   - Prefetch de POWERSHELL.EXE: 3 ejecuciones en ventana de 2 minutos
+
+3. COMUNICACIONES C2
+   - Conexiones salientes a 91.224.160.12:443 (HTTPS)
+   - Tráfico de red confirmado desde Wireshark: SNI = stage.update-cdn.net
+   - Segunda conexión a 185.220.101.47:80 post-ejecución del payload
+
+4. ROBO DE CREDENCIALES
+   - Login Data de Chrome modificado: 2026-03-14 03:20:11 UTC
+   - Firefox logins.json accessed: 03:20:15 UTC
+   - Carpeta %APPDATA%\Roaming\Electrum accedida (cartera crypto)
+
+5. PERSISTENCIA
+   - RunKey creado: HKCU\Software\Microsoft\Windows\CurrentVersion\Run
+     Nombre: "WindowsUpdateHelper"
+     Valor:  "C:\Users\jperez\AppData\Roaming\svchost.exe"
+   - Archivo svchost.exe en AppData: 2026-03-14 03:21:00 UTC (hash = Lumma Stealer)
+
+6. EVASIÓN
+   - EID 1102 (borrado de log): 2026-03-14 03:44:21 UTC
+   - Solo 26 minutos después del primer acceso exitoso
+   - Prefetch borrado de System32 tools (evidencia de limpieza manual)
+
+7. MOVIMIENTO LATERAL
+   - EID 4648 (logon explícito) hacia FILESERVER-01 con credenciales de jperez
+   - Hora: 2026-03-14 03:52:11 UTC
+   - SMB share \\FILESERVER-01\Finanzas accedido
+
+LÍNEA DE TIEMPO (UTC)
+=====================
+03:17:43  Apertura de documento Word con macros (Trust Records)
+03:18:02  Ejecución de PowerShell desde macro
+03:18:45  Conexión C2 a 91.224.160.12
+03:19:30  Descarga y ejecución de Lumma Stealer
+03:20:11  Robo de credenciales de navegadores
+03:21:00  Creación de persistencia (RunKey + svchost.exe falso)
+03:44:21  Borrado de logs de auditoría (EID 1102)
+03:52:11  Movimiento lateral a FILESERVER-01
