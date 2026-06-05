@@ -49,7 +49,7 @@ This is an engineering trade-off between demo reliability and analytical depth, 
 6. bash demo/run_integration_test.sh
 ```
 
-All 7 integration tests passed from a clean clone at commit `e66f416`:
+All 7 integration tests passed from a clean clone at commit `e66f416` (confirmed, exit code 0, no manual installs outside `requirements.txt`):
 
 ```
 [1/7] Module imports         PASS
