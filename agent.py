@@ -370,6 +370,8 @@ REGLAS:
         log("Interrogando evidencia con NL→SQL...")
 
         findings = []
+        out = self.output_dir / "interrogate_findings.json"
+        out.write_text("[]")  # initialize early so file always exists
 
         for evtx_name, info in orient.items():
             if "db_path" not in info:
@@ -431,6 +433,7 @@ REGLAS:
 
                     findings.append(f)
                     finding(f"[{q_id}] {result['row_count']} resultados")
+                    out.write_text(json.dumps(findings, indent=2, ensure_ascii=False))
 
         # Persist findings before the deep-dive so they survive a ReAct timeout
         self.findings.extend(findings)
