@@ -227,7 +227,11 @@ This benchmark does not rank against other submissions. It shows why bounded SQL
 ```bash
 git clone https://github.com/robdinovil/dfirllama-sift
 cd dfirllama-sift
-python3 -m venv .venv
+
+# Create virtual environment (use virtualenv on SIFT; python3 -m venv on other systems)
+virtualenv .venv          # SIFT / Ubuntu (python3-venv not pre-installed)
+# python3 -m venv .venv  # other systems
+
 source .venv/bin/activate
 pip install --upgrade pip
 pip install -r requirements.txt

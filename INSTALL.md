@@ -72,7 +72,12 @@ cd dfirllama-sift
 ### Step 2 — Create virtual environment and install dependencies
 
 ```bash
-python3 -m venv .venv
+# On SIFT (python3-venv not pre-installed, but virtualenv is available):
+virtualenv .venv
+
+# On other Ubuntu/Debian systems where python3-venv is installed:
+# python3 -m venv .venv
+
 source .venv/bin/activate
 pip install --upgrade pip
 pip install -r requirements.txt
@@ -80,7 +85,7 @@ pip install -r requirements.txt
 
 This installs: `fastmcp`, `vanna[chromadb]`, `pandas`, `anthropic`, `openai`, `flask`, `yara-python`, `python-whois`, `requests`
 
-> **Note:** On SIFT (Ubuntu managed Python), using a venv avoids conflicts with system packages. Activate it with `source .venv/bin/activate` before running any `python3` command.
+> **Note:** Using a virtual environment avoids conflicts with SIFT's system Python packages. Always activate it with `source .venv/bin/activate` before running any command.
 
 **If any package fails:**
 
