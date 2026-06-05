@@ -129,6 +129,9 @@ class EILAgent:
         self.case_dir    = Path(case_dir).resolve()
         self.output_dir  = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
+        # Allow guardrails to access the case directory
+        if str(self.case_dir) not in os.environ.get("EVIDENCE_ROOT", "/cases"):
+            os.environ["EVIDENCE_ROOT"] = str(self.case_dir)
         self.tools       = _load_tools(str(self.case_dir))
         self.findings    = []        # hallazgos acumulados
         self.evtx_dbs    = {}        # {evtx_name: db_path}
@@ -334,6 +337,27 @@ REGLAS:
                     }
                     observation(f"{r.get('line_count',0)} líneas de output")
 
+        # Register pre-existing SQLite databases (demo mode / pre-parsed EVTX)
+        import sqlite3
+        for f in sorted(Path(self.case_dir).iterdir()):
+            if f.suffix == ".db" and f.is_file() and f.stem not in orient_results:
+                try:
+                    with sqlite3.connect(str(f)) as con:
+                        tables = [r[0] for r in con.execute(
+                            "SELECT name FROM sqlite_master WHERE type='table'").fetchall()]
+                        count = con.execute(
+                            f"SELECT COUNT(*) FROM {tables[0]}").fetchone()[0] if tables else 0
+                    orient_results[f.stem] = {
+                        "db_path":       str(f),
+                        "total_events":  count,
+                        "time_range":    "pre-parsed SQLite database",
+                        "top_event_ids": [],
+                    }
+                    self.evtx_dbs[f.stem] = str(f)
+                    log(f"Pre-parsed DB found: {f.name} ({count:,} events)", GREEN)
+                except Exception:
+                    pass
+
         out = self.output_dir / "orient_results.json"
         out.write_text(json.dumps(orient_results, indent=2, ensure_ascii=False))
         log(f"Orientación completa → {out}")
@@ -408,34 +432,39 @@ REGLAS:
                     findings.append(f)
                     finding(f"[{q_id}] {result['row_count']} resultados")
 
-        # Usar ReAct para análisis profundo si hay hallazgos
+        # Persist findings before the deep-dive so they survive a ReAct timeout
+        self.findings.extend(findings)
+        out = self.output_dir / "interrogate_findings.json"
+        out.write_text(json.dumps(findings, indent=2, ensure_ascii=False))
+        log(f"{len(findings)} hallazgos → {out}")
+
+        # ReAct deep dive (skip if no findings to avoid empty loops)
         if findings and self.evtx_dbs:
             db_path = next(iter(self.evtx_dbs.values()))
             context = f"EVTX DB: {db_path}\nHallazgos iniciales: {len(findings)}\n"
             context += "IPs sospechosas encontradas: " + str(
                 [i["value"] for i in self.iocs_found[:5]]
             )
-            log("Profundizando con ReAct...")
+            log("Profundizando con ReAct (max 3 iteraciones)...")
             deep_result = self.react(
                 objective="Profundizar en los hallazgos del triage. "
                           "Para cada IP externa encontrada, determinar cuántas "
                           "veces se conectó y qué usuarios usó. "
                           "Buscar evidencia de timestomping o actividad nocturna.",
                 context=context,
-                max_iterations=6,
+                max_iterations=3,
             )
             if deep_result and "max_iterations" not in deep_result:
-                findings.append({
+                deep_f = {
                     "phase":       "interrogate_deep",
                     "description": "Análisis profundo ReAct",
                     "verdict":     deep_result,
                     "confidence":  "medium",
-                })
+                }
+                findings.append(deep_f)
+                self.findings.append(deep_f)
+                out.write_text(json.dumps(findings, indent=2, ensure_ascii=False))
 
-        self.findings.extend(findings)
-        out = self.output_dir / "interrogate_findings.json"
-        out.write_text(json.dumps(findings, indent=2, ensure_ascii=False))
-        log(f"{len(findings)} hallazgos → {out}")
         return findings
 
     # ── Fase 4: ENRICH ───────────────────────────────────────────────────────

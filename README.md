@@ -227,6 +227,9 @@ This benchmark does not rank against other submissions. It shows why bounded SQL
 ```bash
 git clone https://github.com/robdinovil/dfirllama-sift
 cd dfirllama-sift
+python3 -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip
 pip install -r requirements.txt
 ```
 

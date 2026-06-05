@@ -68,7 +68,9 @@ def check_path(path: str | Path) -> Path:
     Raises ValueError if out of scope.
     """
     p = Path(path).resolve()
-    allowed = [EVIDENCE_ROOT] + ALLOWED_WRITE_DIRS
+    # Re-read EVIDENCE_ROOT from env each call so agents can override it at runtime
+    current_root = Path(os.getenv("EVIDENCE_ROOT", str(EVIDENCE_ROOT))).resolve()
+    allowed = [current_root] + ALLOWED_WRITE_DIRS
     if not any(str(p).startswith(str(prefix)) for prefix in allowed):
         raise ValueError(
             f"Path out of allowed scope: {p}\n"

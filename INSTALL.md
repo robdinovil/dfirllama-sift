@@ -69,21 +69,25 @@ git clone https://github.com/robdinovil/dfirllama-sift
 cd dfirllama-sift
 ```
 
-### Step 2 — Install Python dependencies
+### Step 2 — Create virtual environment and install dependencies
 
 ```bash
-pip3 install -r requirements.txt
+python3 -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip
+pip install -r requirements.txt
 ```
 
 This installs: `fastmcp`, `vanna[chromadb]`, `pandas`, `anthropic`, `openai`, `flask`, `yara-python`, `python-whois`, `requests`
 
+> **Note:** On SIFT (Ubuntu managed Python), using a venv avoids conflicts with system packages. Activate it with `source .venv/bin/activate` before running any `python3` command.
+
 **If any package fails:**
 
 ```bash
-# Install individually
-pip3 install fastmcp
-pip3 install "vanna[chromadb]"
-pip3 install pandas flask anthropic openai requests python-whois yara-python
+pip install fastmcp
+pip install "vanna[chromadb]"
+pip install pandas flask anthropic openai requests python-whois yara-python
 ```
 
 ### Step 3 — Configure environment
