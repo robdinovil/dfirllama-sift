@@ -8,11 +8,11 @@ This document maps every hackathon requirement to its implementation in this sub
 |-------------------|----------|--------|
 | Public GitHub repo with MIT/Apache license | [github.com/robdinovil/dfirllama-sift](https://github.com/robdinovil/dfirllama-sift) + `LICENSE` | ✅ |
 | Demo video (<5 min, YouTube/Vimeo, narrated, shows self-correction) | See README — **[VIDEO LINK TBD]** | ⏳ |
-| Architecture diagram | `docs/ARCHITECTURE.md` + README ASCII diagram | ✅ |
+| Architecture diagram | `docs/ARCHITECTURE.md` (component + data flow + EIL diagrams) + README ASCII diagram | ✅ |
 | Dataset documentation | `docs/DATASET.md` | ✅ |
 | Accuracy report | `docs/ACCURACY_REPORT.md` | ✅ |
 | Execution logs with timestamps | `/tmp/dfirllama_audit.log` (JSONL) — schema in `docs/EXECUTION_LOG_SCHEMA.md` | ✅ |
-| Installation instructions for SIFT | `INSTALL.md` + `setup.sh` + `setup_check.py` | ✅ |
+| Installation instructions for SIFT | `INSTALL.md` (full English) + `setup.sh` + `setup_check.py` | ✅ |
 | New work declaration | `docs/NEW_WORK.md` | ✅ |
 
 ## Functional Requirements
@@ -42,6 +42,11 @@ This document maps every hackathon requirement to its implementation in this sub
 Primary materials are in English. `PAPER.md` contains the extended Spanish technical paper for the FIRST 2026 submission (companion paper, not the primary hackathon submission). Key English materials:
 
 - `README.md` — full English
-- `INSTALL.md` — full English  
-- `docs/` — all English
+- `INSTALL.md` — full English (translated from original Spanish draft)
+- `THIRD_PARTY_NOTICES.md` — full English
+- `docs/ARCHITECTURE.md` — full English
+- `docs/ACCURACY_REPORT.md` — full English
+- `docs/DATASET.md` — full English
+- `docs/HACKATHON_COMPLIANCE.md` — full English
+- `docs/NEW_WORK.md` — full English
 - `server.py` — code comments in English

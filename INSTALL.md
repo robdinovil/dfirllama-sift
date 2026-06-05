@@ -1,131 +1,140 @@
-# DFIRLlama-SIFT — Manual de Usuario
-## Instalación, Configuración y Uso
+# DFIRLlama-SIFT — Installation Guide
+## Setup, Configuration and Usage
 
-**Versión:** 1.0 — SANS FIND EVIL! Hackathon 2026  
-**Tiempo estimado de instalación:** 15–20 minutos  
-**Nivel requerido:** Analista DFIR con Python básico
-
----
-
-## Índice
-
-1. [Requisitos](#1-requisitos)
-2. [Instalación en 5 pasos](#2-instalación-en-5-pasos)
-3. [Modo 1 — Claude Code + MCP](#3-modo-1--claude-code--mcp-recomendado)
-4. [Modo 2 — Agente standalone (Ollama / air-gap)](#4-modo-2--agente-standalone-ollama--air-gap)
-5. [Modo 3 — Web UI](#5-modo-3--web-ui)
-6. [Qué evidencias puedo analizar](#6-qué-evidencias-puedo-analizar)
-7. [Ejemplos de uso real](#7-ejemplos-de-uso-real)
-8. [Cómo leer los outputs](#8-cómo-leer-los-outputs)
-9. [Solución de problemas](#9-solución-de-problemas)
-10. [Referencia rápida de herramientas](#10-referencia-rápida-de-herramientas)
+**Version:** 1.0 — SANS FIND EVIL! Hackathon 2026  
+**Estimated install time:** 15–20 minutes  
+**Required level:** DFIR analyst with basic Python knowledge
 
 ---
 
-## 1. Requisitos
+## Table of Contents
 
-### Hardware mínimo
-| Componente | Mínimo | Recomendado |
-|-----------|--------|-------------|
+1. [Requirements](#1-requirements)
+2. [Installation — 5 Steps](#2-installation--5-steps)
+3. [Mode 1 — Claude Code + MCP](#3-mode-1--claude-code--mcp-recommended)
+4. [Mode 2 — Standalone agent (Ollama / air-gap)](#4-mode-2--standalone-agent-ollama--air-gap)
+5. [Mode 3 — Web UI](#5-mode-3--web-ui)
+6. [Supported Evidence Types](#6-supported-evidence-types)
+7. [Real Usage Examples](#7-real-usage-examples)
+8. [Reading the Outputs](#8-reading-the-outputs)
+9. [Troubleshooting](#9-troubleshooting)
+10. [Tool Quick Reference](#10-tool-quick-reference)
+
+---
+
+## 1. Requirements
+
+### Minimum Hardware
+
+| Component | Minimum | Recommended |
+|-----------|---------|-------------|
 | RAM | 8 GB | 16 GB+ |
-| Disco libre | 2 GB | 10 GB+ |
-| CPU | Cualquier x86-64 | 4+ cores |
-| GPU | No requerida | Opcional (acelera Ollama) |
+| Free disk | 2 GB | 10 GB+ |
+| CPU | Any x86-64 | 4+ cores |
+| GPU | Not required | Optional (accelerates Ollama) |
 
-### Software requerido
-| Software | Versión mínima | Cómo verificar |
-|---------|----------------|----------------|
+### Required Software
+
+| Software | Min version | How to verify |
+|---------|-------------|---------------|
 | SANS SIFT Workstation | Ubuntu 20.04+ | `lsb_release -a` |
 | Python | 3.10+ | `python3 --version` |
-| Claude Code CLI | Cualquiera | `claude --version` |
+| Claude Code CLI | Any | `claude --version` |
 | pip | 21+ | `pip3 --version` |
 
-### Software opcional (para modo air-gap)
-| Software | Para qué | Instalación |
-|---------|----------|-------------|
-| Ollama | LLM local sin internet | `curl -fsSL https://ollama.ai/install.sh \| sh` |
-| mistral:7b | Modelo recomendado | `ollama pull mistral:7b` |
+### Optional Software (for air-gap mode)
 
-### Verificar que Claude Code está autenticado
+| Software | Purpose | Install |
+|---------|---------|---------|
+| Ollama | Local LLM without internet | `curl -fsSL https://ollama.ai/install.sh \| sh` |
+| mistral:7b | Recommended model | `ollama pull mistral:7b` |
+
+### Verify Claude Code is authenticated
+
 ```bash
 claude --version
-# Debe mostrar versión sin error
-# Si falla: claude auth login
+# Should print version without error
+# If it fails: claude auth login
 ```
 
 ---
 
-## 2. Instalación en 5 pasos
+## 2. Installation — 5 Steps
 
-### Paso 1 — Clonar el repositorio
+### Step 1 — Clone the repository
 
 ```bash
 cd ~
-git clone https://github.com/[tu-usuario]/dfirllama-sift
+git clone https://github.com/robdinovil/dfirllama-sift
 cd dfirllama-sift
 ```
 
-### Paso 2 — Instalar dependencias Python
+### Step 2 — Install Python dependencies
 
 ```bash
 pip3 install -r requirements.txt
 ```
 
-Esto instala: `fastmcp`, `vanna[chromadb]`, `pandas`, `anthropic`, `openai`, `flask`, `yara-python`, `python-whois`, `requests`
+This installs: `fastmcp`, `vanna[chromadb]`, `pandas`, `anthropic`, `openai`, `flask`, `yara-python`, `python-whois`, `requests`
 
-**Si alguna instalación falla:**
+**If any package fails:**
+
 ```bash
-# Intentar una por una
+# Install individually
 pip3 install fastmcp
 pip3 install "vanna[chromadb]"
 pip3 install pandas flask anthropic openai requests python-whois yara-python
 ```
 
-### Paso 3 — Configurar el entorno
+### Step 3 — Configure environment
 
 ```bash
 cp .env.example .env
 ```
 
-Editar `.env` con tu editor preferido:
+Edit `.env` with your preferred editor:
+
 ```bash
 nano .env
 ```
 
-Contenido del `.env`:
+`.env` contents:
+
 ```bash
-# Elige tu modo LLM:
+# Choose your LLM backend:
 
-# Opción A — Claude Code (hackathon, requiere internet)
-LLM_BACKEND=claude
+# Option A — Auto-detect (recommended: tries claude-cli first, then claude-api, then ollama)
+LLM_BACKEND=auto
 
-# Opción B — Ollama local (air-gap, 100% sin internet)
+# Option B — Ollama local (air-gap, 100% offline)
 # LLM_BACKEND=ollama
 # OLLAMA_MODEL=mistral:7b
 
-# Directorio donde están tus casos forenses
+# Root directory for forensic cases (path guardrail)
 EVIDENCE_ROOT=/cases
 
-# Dónde guardar el audit trail
+# Where to store the audit trail
 AUDIT_LOG=/tmp/dfirllama_audit.log
 ```
 
-### Paso 4 — Registrar el servidor MCP con Claude Code
+### Step 4 — Register the MCP server with Claude Code
 
-Abrir el archivo de configuración de Claude Code:
+Open the Claude Code settings file:
+
 ```bash
 nano ~/.claude/settings.json
 ```
 
-Agregar la sección `mcpServers` (si ya existe el archivo, agregar dentro del JSON):
+Add the `mcpServers` section (if the file already exists, add it inside the JSON object):
+
 ```json
 {
   "mcpServers": {
     "dfirllama-sift": {
       "command": "python3",
-      "args": ["/home/TU_USUARIO/dfirllama-sift/server.py"],
+      "args": ["/home/YOUR_USERNAME/dfirllama-sift/server.py"],
       "env": {
-        "LLM_BACKEND": "claude",
+        "LLM_BACKEND": "auto",
         "EVIDENCE_ROOT": "/cases",
         "AUDIT_LOG": "/tmp/dfirllama_audit.log"
       }
@@ -134,351 +143,356 @@ Agregar la sección `mcpServers` (si ya existe el archivo, agregar dentro del JS
 }
 ```
 
-> **Importante:** Reemplaza `/home/TU_USUARIO/` con la ruta real.  
-> Para verificarla: `pwd` en el directorio del proyecto.
+> **Important:** Replace `/home/YOUR_USERNAME/` with the actual path.  
+> To find it: run `pwd` from the project directory.
 
-### Paso 5 — Instalar el skill EIL en Claude Code
+### Step 5 — Install the EIL skill in Claude Code
 
 ```bash
-# El directorio skills/dfirllama-eil/ ya viene en el repo
-# Solo necesitas copiarlo si no está en ~/.claude/skills/
+# The skills/dfirllama-eil/ directory is already included in the repo.
+# Only copy it if it is not yet in ~/.claude/skills/
 ls ~/.claude/skills/dfirllama-eil/SKILL.md
 
-# Si no existe:
+# If the file does not exist:
 mkdir -p ~/.claude/skills/dfirllama-eil
 cp skills/dfirllama-eil/SKILL.md ~/.claude/skills/dfirllama-eil/
 ```
 
-### Verificar instalación
+### Verify installation
 
 ```bash
-# Verificar que todos los módulos importan correctamente
+# Check all modules import correctly
 python3 -c "
 import server, agent, webui, guardrails
 from tools import nlsql, evtx_tools, ioc_tools, validator
 from llm import client
-print('✓ Todos los módulos OK')
+print('All modules OK')
 "
 
-# Correr el benchmark de prueba (no necesita LLM)
+# Run the dry-run benchmark (no LLM required)
 python3 benchmark/run_benchmark.py --dry-run
-# Debe mostrar: Correctas: 20 (100.0%)
+# Expected output: Correct: 20 (100.0%)
 
-# Verificar que el servidor MCP arranca
+# Verify the MCP server starts
 python3 server.py --help
 ```
 
 ---
 
-## 3. Modo 1 — Claude Code + MCP (recomendado)
+## 3. Mode 1 — Claude Code + MCP (Recommended)
 
-Este es el modo principal. Claude Code actúa como el cerebro, lee el protocolo EIL, y llama a las 22 herramientas del servidor MCP automáticamente.
+This is the primary mode. Claude Code acts as the orchestrator, reads the EIL protocol, and calls the 22 MCP server tools autonomously.
 
-### Cómo funciona internamente
+### How it works internally
 
 ```
-Tu terminal
+Your terminal
     │
     ▼ claude
 Claude Code
-    │  lee → ~/.claude/CLAUDE.md (comportamiento base)
-    │  lee → ~/.claude/skills/dfirllama-eil/SKILL.md (protocolo EIL)
+    │  reads → ~/.claude/CLAUDE.md (base behavior)
+    │  reads → ~/.claude/skills/dfirllama-eil/SKILL.md (EIL protocol)
     │
     │  JSON-RPC stdio
     ▼
 server.py (DFIRLlama-SIFT MCP Server)
     │
     ▼
-22 herramientas forenses → EVTX, memoria, registro, red, IOCs...
+22 forensic tools → EVTX, memory, registry, network, IOCs...
 ```
 
-### Uso básico
+### Basic usage
 
 ```bash
-# 1. Ir al directorio del caso
+# 1. Navigate to the case directory
 cd /cases/IR-2024-0622
 
-# 2. Abrir Claude Code
+# 2. Open Claude Code
 claude
 
-# 3. Decirle qué quieres en lenguaje natural
+# 3. Describe what you need in natural language
 ```
 
-### Ejemplos de prompts
+### Example prompts
 
-**Investigación completa autónoma:**
-```
-Investiga todos los artefactos en este directorio. Busca evidencia
-de compromiso, lateral movement, persistencia y exfiltración.
-Genera un reporte con las técnicas ATT&CK identificadas.
-```
+**Full autonomous investigation:**
 
-**Análisis específico de EVTX:**
 ```
-Analiza el archivo Security.evtx. Busca logons externos,
-creación de cuentas y ejecución de PowerShell sospechoso.
+Investigate all artifacts in this directory. Look for evidence of
+compromise, lateral movement, persistence, and exfiltration.
+Generate a report with identified ATT&CK techniques.
 ```
 
-**Pregunta forense directa:**
+**EVTX-specific analysis:**
+
 ```
-En el EVTX de este directorio, ¿el usuario administrator
-se conectó desde más de una IP diferente el mismo día?
+Analyze the Security.evtx file. Look for external logons,
+account creation, and suspicious PowerShell execution.
 ```
 
-**Investigar una IP específica:**
+**Direct forensic question:**
+
 ```
-Investiga la IP 102.20.90.8. ¿Es maliciosa?
-¿A qué país pertenece? ¿Está en listas de amenazas?
+In the EVTX files in this directory, did the administrator
+connect from more than one different IP on the same day?
 ```
 
-**Análisis de memoria:**
+**Investigate a specific IP:**
+
 ```
-Corre Volatility sobre el archivo memory.raw.
-Muestra procesos, conexiones de red activas,
-y busca código inyectado con malfind.
+Investigate IP 102.20.90.8. Is it malicious?
+What country does it belong to? Is it on any threat lists?
 ```
 
-### El EIL corre solo — qué verás
+**Memory analysis:**
 
-Claude Code ejecutará automáticamente las 6 fases del Evidence Interrogation Loop:
+```
+Run Volatility against the memory.raw file.
+Show processes, active network connections,
+and look for injected code with malfind.
+```
+
+### The EIL runs autonomously — what you will see
+
+Claude Code will automatically execute all 6 phases of the Evidence Interrogation Loop:
 
 ```
 [EIL Phase 1 — INVENTORY]
-  Calculando SHA256 de todos los artefactos...
-  → Security.evtx (44,281 eventos)
+  Hashing all artifacts...
+  → Security.evtx (44,281 events)
   → memory.raw (2.1 GB)
   → Amcache.hve
 
 [EIL Phase 2 — ORIENT]
-  Parseando Security.evtx → SQLite...
-  44,281 eventos | 2024-01-01 → 2024-06-28
-  Analizando memoria: windows.pslist, windows.netscan
+  Parsing Security.evtx → SQLite...
+  44,281 events | 2024-01-01 → 2024-06-28
+  Analyzing memory: windows.pslist, windows.netscan
 
 [EIL Phase 3 — INTERROGATE]
-  Q: ¿Hubo logons desde IPs externas?
+  Q: Were there logons from external IPs?
   SQL: SELECT TimeCreated, UserName, RemoteHost FROM events
        WHERE EventId=21 AND RemoteHost NOT LIKE '10.%'
-  → 234 resultados
+  → 234 results
 
-  ★ HALLAZGO: administrator conectado desde 102.20.90.8 (África)
+  FINDING: administrator connected from 102.20.90.8 (Africa)
 
 [EIL Phase 4 — ENRICH]
-  Investigando 102.20.90.8...
-  → País: Nigeria, AS37282
-  → En blocklist IPSum: score 7/10 (MALICIOSO)
+  Investigating 102.20.90.8...
+  → Country: Nigeria, AS37282
+  → On IPSum blocklist: score 7/10 (MALICIOUS)
 
 [EIL Phase 5 — VALIDATE]
-  18 hallazgos validados. Hallucination score: 5.6%
-  1 auto-corrección aplicada.
+  18 findings validated. Hallucination score: 5.6%
+  1 self-correction applied.
 
 [EIL Phase 6 — REPORT]
-  14 técnicas ATT&CK identificadas.
-  Navigator layer generado.
-  Reporte escrito en ./analysis/
+  14 ATT&CK techniques identified.
+  Navigator layer generated.
+  Report written to ./analysis/
 
-Tiempo total: 12 minutos
+Total time: 12 minutes
 ```
 
 ---
 
-## 4. Modo 2 — Agente standalone (Ollama / air-gap)
+## 4. Mode 2 — Standalone Agent (Ollama / Air-Gap)
 
-Para casos donde la evidencia **no puede salir de la red**. Funciona idéntico al Modo 1 pero con un modelo local.
+For cases where evidence **cannot leave the network**. Operates identically to Mode 1 but with a local model.
 
-### Configurar Ollama
+### Configure Ollama
 
 ```bash
-# Instalar Ollama (requiere internet una vez)
+# Install Ollama (requires internet once)
 curl -fsSL https://ollama.ai/install.sh | sh
 
-# Descargar el modelo (requiere internet una vez)
-ollama pull mistral:7b          # 4 GB, bueno para la mayoría de tareas
-# o
-ollama pull qwen2.5:14b         # 9 GB, mejor calidad si tienes RAM
+# Download the model (requires internet once)
+ollama pull mistral:7b          # 4 GB, good for most tasks
+# or
+ollama pull qwen2.5:14b         # 9 GB, better quality if you have RAM
 
-# Verificar que Ollama corre
+# Verify Ollama is running
 ollama list
 ```
 
-### Configurar para modo air-gap
+### Configure for air-gap mode
 
 ```bash
-# Editar .env
+# Edit .env
 LLM_BACKEND=ollama
 OLLAMA_MODEL=mistral:7b
 ```
 
-Una vez configurado, Ollama no necesita internet. El modelo está en disco.
+Once configured, Ollama does not require internet. The model is stored on disk.
 
-### Uso
+### Usage
 
 ```bash
-# Investigación completa
+# Full investigation
 python3 agent.py /cases/IR-2024-0622
 
-# Con incident ID específico
+# With a specific incident ID
 python3 agent.py /cases/IR-2024-0622 --id IR-2024-0622
 
-# Empezar desde una fase específica (si ya tienes EVTX parseado)
+# Start from a specific phase (if EVTX is already parsed)
 python3 agent.py /cases/IR-2024-0622 --phase interrogate
 
-# Solo el reporte final
+# Only the final report
 python3 agent.py /cases/IR-2024-0622 --phase report
 
-# Demo inmediata con el dataset incluido (no necesita evidencia real)
+# Immediate demo with the included dataset (no real evidence needed)
 python3 agent.py demo/data --demo
 ```
 
-### Qué verás en terminal
+### Terminal output
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  FASE 1 — INVENTORY
+  PHASE 1 — INVENTORY
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-[07:14:22] Mapeando evidencia disponible...
+[07:14:22] Mapping available evidence...
   → file_hash(Security.evtx)
     Obs: SHA256: a3f8b2c19d4e5f67...
-[07:14:23] Inventario: 3 artefactos → ./analysis/evidence_manifest.json
+[07:14:23] Inventory: 3 artifacts → ./analysis/evidence_manifest.json
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  FASE 3 — INTERROGATE
+  PHASE 3 — INTERROGATE
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  Thought: Primero busco logons externos...
+  Thought: Looking for external logons first...
   → query_forensic_db("external RDP connections?")
     Obs: {'row_count': 234, 'results': [...]}
 
-★ HALLAZGO: [logons_externos] 234 resultados
+FINDING: [external_logons] 234 results
 
-  Thought: Hay IPs externas, investigar la más frecuente
+  Thought: External IPs found, investigate the most frequent one
   → query_forensic_db("administrator from multiple IPs same day?")
-    Obs: {'row_count': 2, 'results': [{'fecha': '2024-06-22', ...}]}
+    Obs: {'row_count': 2, 'results': [{'date': '2024-06-22', ...}]}
 
-★ HALLAZGO: [admin_multiples_ips] 2 resultados
+FINDING: [admin_multiple_ips] 2 results
 ```
 
 ---
 
-## 5. Modo 3 — Web UI
+## 5. Mode 3 — Web UI
 
-Interfaz web local para usar DFIRLlama-SIFT desde el navegador. Ideal para demos o usuarios no acostumbrados al terminal.
+Local web interface for using DFIRLlama-SIFT from a browser. Ideal for demos or users less comfortable with the terminal.
 
-### Iniciar
+### Start
 
 ```bash
 python3 webui.py
-# Abre http://localhost:7860 en el navegador
+# Open http://localhost:7860 in your browser
 ```
 
-### Funciones disponibles en la UI
+### Available UI functions
 
-**Panel izquierdo — Controles:**
+**Left panel — Controls:**
 
-| Sección | Qué hace |
-|---------|----------|
-| Evidence Interrogation Loop | Lanza el EIL completo. Pon la ruta del caso y click en "Run EIL" |
-| Demo mode | Usa el dataset sintético incluido. No necesitas evidencia propia |
-| NL→SQL Query | Escribe una pregunta en lenguaje natural sobre cualquier EVTX |
-| IOC Analyzer | Investiga una IP, dominio, hash o comando PowerShell |
-
-**Panel derecho — Resultados:**
-
-| Pestaña | Qué muestra |
+| Section | What it does |
 |---------|-------------|
-| Terminal | El EIL corriendo en tiempo real (streaming) |
-| Findings | Lista de hallazgos con nivel de confianza |
-| ATT&CK | Técnicas MITRE identificadas. Botón para abrir Navigator |
-| NL→SQL | SQL generada + resultados de la query |
+| Evidence Interrogation Loop | Launches the full EIL. Enter the case path and click "Run EIL" |
+| Demo mode | Uses the included synthetic dataset. No real evidence required |
+| NL→SQL Query | Type a natural language question about any EVTX |
+| IOC Analyzer | Investigate an IP, domain, hash, or PowerShell command |
 
-### Flujo típico en la Web UI
+**Right panel — Results:**
 
-1. Poner la ruta del caso en "Case directory": `/cases/IR-2024-0622`
-2. Asignar un Incident ID: `IR-2024-0622`
-3. Click en **▶ Run EIL**
-4. Ver el análisis en tiempo real en la pestaña Terminal
-5. Al terminar, ir a Findings y ATT&CK para ver resultados
-6. Click en **Open in Navigator** para visualizar en MITRE ATT&CK Navigator
+| Tab | What it shows |
+|-----|--------------|
+| Terminal | EIL running in real time (streaming) |
+| Findings | List of findings with confidence levels |
+| ATT&CK | Identified MITRE techniques. Button to open Navigator |
+| NL→SQL | Generated SQL + query results |
 
----
+### Typical workflow in the Web UI
 
-## 6. Qué evidencias puedo analizar
-
-### Artefactos Windows (análisis completo)
-
-| Archivo | Herramienta | Qué encuentra |
-|---------|-------------|---------------|
-| `*.evtx` | EvtxECmd + NL→SQL | Logons, PowerShell, log clearing, tareas programadas, servicios |
-| `Amcache.hve` | AmcacheParser | Historial de ejecución con SHA1 y timestamps |
-| `*.pf` (prefetch) | PECmd | Cuántas veces corrió cada ejecutable y cuándo |
-| `SYSTEM` hive | AppCompatCacheParser | Archivos que interactuaron con el OS |
-| `NTUSER.DAT` / `UsrClass.dat` | SBECmd | Carpetas que visitó el usuario (shellbags) |
-| `SOFTWARE`, `SYSTEM` hives | RECmd | Persistencia, USB history, configuración de red |
-| `$MFT` | MFTECmd | Todos los archivos con 4 timestamps + detección de timestomping |
-| `*.lnk` | LECmd | Archivos abiertos, incluyendo en USBs |
-| `AutomaticDestinations/` | JLECmd | Archivos recientes por aplicación (Jump Lists) |
-| `$Recycle.Bin` | RBCmd | Archivos eliminados con ruta y timestamp original |
-
-### Memoria y red
-
-| Archivo | Herramienta | Qué encuentra |
-|---------|-------------|---------------|
-| `*.raw`, `*.vmem`, `*.lime` | Volatility 3 | Procesos, conexiones, código inyectado, DLLs |
-| `*.pcap`, `*.pcapng` | tshark | Conversaciones, DNS, hosts HTTP, IPs externas |
-
-### Archivos y binarios
-
-| Archivo | Herramienta | Qué encuentra |
-|---------|-------------|---------------|
-| `*.exe`, `*.dll`, `*.bin` | strings + YARA + bulk_extractor | IOCs embebidos, patrones de malware |
-| Cualquier archivo | file_hash | MD5/SHA1/SHA256/SHA512/ssdeep |
-| Imagen de disco `.E01` | log2timeline (plaso) | Supertimeline completa |
-
-### Texto e inteligencia de amenazas
-
-| Input | Herramienta | Output |
-|-------|-------------|--------|
-| Reporte de TI (texto) | extract_iocs | JSON con IPs, dominios, hashes, URLs |
-| Notas de triage | map_to_mitre | ATT&CK Navigator layer |
-| IP / dominio / hash / PowerShell | analyze_ioc | Veredicto malicioso/sospechoso/benigno |
+1. Enter the case path in "Case directory": `/cases/IR-2024-0622`
+2. Assign an Incident ID: `IR-2024-0622`
+3. Click **Run EIL**
+4. Watch the analysis in real time in the Terminal tab
+5. When done, go to Findings and ATT&CK for results
+6. Click **Open in Navigator** to visualize in MITRE ATT&CK Navigator
 
 ---
 
-## 7. Ejemplos de uso real
+## 6. Supported Evidence Types
 
-### Caso 1: Tienes un .evtx y quieres saber qué pasó
+### Windows Artifacts (full analysis)
+
+| File | Tool | What it finds |
+|------|------|--------------|
+| `*.evtx` | EvtxECmd + NL→SQL | Logons, PowerShell, log clearing, scheduled tasks, services |
+| `Amcache.hve` | AmcacheParser | Execution history with SHA1 hashes and timestamps |
+| `*.pf` (prefetch) | PECmd | How many times each executable ran and when |
+| `SYSTEM` hive | AppCompatCacheParser | Files that interacted with the OS |
+| `NTUSER.DAT` / `UsrClass.dat` | SBECmd | Folders visited by the user (shellbags) |
+| `SOFTWARE`, `SYSTEM` hives | RECmd | Persistence, USB history, network configuration |
+| `$MFT` | MFTECmd | All files with 4 timestamps + timestomping detection |
+| `*.lnk` | LECmd | Files opened, including from external media |
+| `AutomaticDestinations/` | JLECmd | Recent files per application (Jump Lists) |
+| `$Recycle.Bin` | RBCmd | Deleted files with original path and timestamp |
+
+### Memory and Network
+
+| File | Tool | What it finds |
+|------|------|--------------|
+| `*.raw`, `*.vmem`, `*.lime` | Volatility 3 | Processes, connections, injected code, DLLs |
+| `*.pcap`, `*.pcapng` | tshark | Conversations, DNS, HTTP hosts, external IPs |
+
+### Files and Binaries
+
+| File | Tool | What it finds |
+|------|------|--------------|
+| `*.exe`, `*.dll`, `*.bin` | strings + YARA + bulk_extractor | Embedded IOCs, malware patterns, carved artifacts |
+| Any file | file_hash | MD5/SHA1/SHA256/SHA512/ssdeep |
+| Disk image `.E01` | log2timeline (plaso) | Full supertimeline |
+
+### Text and Threat Intelligence
+
+| Input | Tool | Output |
+|-------|------|--------|
+| TI report (text) | extract_iocs | JSON with IPs, domains, hashes, URLs |
+| Triage notes | map_to_mitre | ATT&CK Navigator layer |
+| IP / domain / hash / PowerShell | analyze_ioc | Malicious/suspicious/benign verdict |
+
+---
+
+## 7. Real Usage Examples
+
+### Case 1: You have an .evtx and want to know what happened
 
 ```bash
-# Opción A — pregunta directa en Claude Code
-cd /casos/mi_caso
+# Option A — direct question in Claude Code
+cd /cases/my_case
 claude
-> "Analiza el Security.evtx. ¿Hubo accesos externos? ¿Se limpiaron logs?"
+> "Analyze the Security.evtx. Were there external accesses? Were logs cleared?"
 
-# Opción B — NL→SQL directo desde terminal
+# Option B — NL→SQL directly from terminal
 python3 -c "
 from tools.nlsql import query_nl
-r = query_nl('/tmp/mi_evtx.db', 'Were there logon failures from external IPs?')
+r = query_nl('/tmp/my_evtx.db', 'Were there logon failures from external IPs?')
 print(r['sql'])
 print(r['results'])
 "
 ```
 
-### Caso 2: Tienes una IP sospechosa de los logs
+### Case 2: You have a suspicious IP from the logs
 
 ```bash
-# Desde terminal
+# From terminal
 python3 -c "
 from tools.ioc_tools import analyze_ioc
 r = analyze_ioc('102.20.90.8', 'ip')
 print(r['verdict'])
 "
 
-# O desde la Web UI: pegar la IP en IOC Analyzer y click Investigate
+# Or from the Web UI: paste the IP into IOC Analyzer and click Investigate
 python3 webui.py
 ```
 
-### Caso 3: Quieres saber qué ejecutó el usuario en el equipo comprometido
+### Case 3: You want to know what the user ran on the compromised machine
 
 ```bash
-# Parsear Amcache
+# Parse Amcache
 python3 -c "
 from tools.zimmerman_tools import amcache_parse
 r = amcache_parse('/cases/IR-001/Amcache.hve')
@@ -487,20 +501,20 @@ for entry in r['summary']['suspicious_paths']:
 "
 ```
 
-### Caso 4: Investigación completa air-gap (sin internet)
+### Case 4: Full air-gap investigation (offline)
 
 ```bash
-# 1. Asegurarse de que Ollama corre
+# 1. Ensure Ollama is running
 ollama serve &
 
-# 2. Configurar el backend
+# 2. Set the backend
 export LLM_BACKEND=ollama
 export OLLAMA_MODEL=mistral:7b
 
-# 3. Correr el agente
+# 3. Run the agent
 python3 agent.py /cases/IR-2024-0622 --id IR-2024-0622
 
-# 4. Revisar outputs
+# 4. Review outputs
 ls ./analysis/
 # IR-2024-0622_findings.json
 # IR-2024-0622_navigator.json
@@ -509,24 +523,24 @@ ls ./analysis/
 # forensic_audit.log
 ```
 
-### Caso 5: Demo rápida para mostrar el sistema (sin evidencia real)
+### Case 5: Quick demo to show the system (no real evidence)
 
 ```bash
 # Demo mode — uses the included synthetic RDP compromise dataset
 python3 agent.py demo/data --demo
 
-# O desde Web UI con botón "Demo mode"
+# Or from the Web UI with the "Demo mode" button
 python3 webui.py
-# → Click "🎬 Demo mode"
+# → Click "Demo mode"
 ```
 
 ---
 
-## 8. Cómo leer los outputs
+## 8. Reading the Outputs
 
-Todos los outputs van a `./analysis/` (relativo a donde corriste el comando).
+All outputs go to `./analysis/` (relative to where you ran the command).
 
-### `evidence_manifest.json` — Inventario de evidencia
+### `evidence_manifest.json` — Evidence inventory
 
 ```json
 {
@@ -536,18 +550,18 @@ Todos los outputs van a `./analysis/` (relativo a donde corriste el comando).
       "name": "Security.evtx",
       "type": "Windows Event Log",
       "size_mb": 45.2,
-      "sha256": "a3f8b2c19d4e..."    ← hash para chain of custody
+      "sha256": "a3f8b2c19d4e..."
     }
   ]
 }
 ```
 
-### `IR-XXXX_findings.json` — Hallazgos verificados
+### `IR-XXXX_findings.json` — Verified findings
 
 ```json
 {
   "total_findings": 18,
-  "hallucination_score": 0.056,      ← 5.6% = aceptable
+  "hallucination_score": 0.056,
   "technique_count": 14,
   "findings": [
     {
@@ -555,7 +569,7 @@ Todos los outputs van a `./analysis/` (relativo a donde corriste el comando).
       "description": "administrator connected from external IP 102.20.90.8",
       "confidence": "high",
       "ioc_value": "102.20.90.8",
-      "evidence_sample": [...]        ← filas reales del EVTX
+      "evidence_sample": [...]
     }
   ]
 }
@@ -563,132 +577,139 @@ Todos los outputs van a `./analysis/` (relativo a donde corriste el comando).
 
 ### `IR-XXXX_navigator.json` — ATT&CK Navigator layer
 
-Importar en https://mitre-attack.github.io/attack-navigator/:
-1. Abrir el Navigator
+Import at https://mitre-attack.github.io/attack-navigator/:
+
+1. Open the Navigator
 2. "Open Existing Layer" → "Upload from local"
-3. Seleccionar el archivo `.json`
+3. Select the `.json` file
 
-### `IR-XXXX_executive_summary.md` — Reporte para el cliente
+### `IR-XXXX_executive_summary.md` — Client report
 
-Markdown listo para convertir a PDF o Word. Contiene:
-- Resumen ejecutivo
-- Técnicas ATT&CK identificadas con evidencia
-- Hallazgos clave
-- Acciones recomendadas
+Markdown ready to convert to PDF or Word. Contains:
 
-### `forensic_audit.log` — Audit trail completo
+- Executive summary
+- ATT&CK techniques with evidence
+- Key findings
+- Recommended actions
+
+### `forensic_audit.log` — Full audit trail
 
 ```jsonl
 {"ts":"2026-06-03T07:14:22Z","tool":"evtx_to_sqlite","args":{"evtx_path":"/cases/..."},"result":"ok, 44281 events"}
 {"ts":"2026-06-03T07:14:35Z","tool":"query_forensic_db","args":{"question":"external IPs?"},"result":"234 rows"}
 ```
 
-Cada línea = una llamada a una herramienta. Útil para cadena de custodia.
+Each line = one tool call. Useful for chain of custody.
 
-### `hallucination_score` — Cómo interpretarlo
+### `hallucination_score` — How to interpret it
 
-| Score | Significado | Acción |
-|-------|-------------|--------|
-| 0.0–10% | ✅ Limpio | Confiar en los hallazgos |
-| 10–25% | ⚠️ Revisar | Validar manualmente los `contradicted` |
-| >25% | ❌ Alto riesgo | Re-investigar antes de reportar |
+| Score | Meaning | Action |
+|-------|---------|--------|
+| 0.0–10% | Clean | Trust the findings |
+| 10–25% | Review | Manually validate the `contradicted` items |
+| >25% | High risk | Re-investigate before reporting |
 
 ---
 
-## 9. Solución de problemas
+## 9. Troubleshooting
 
 ### "No module named 'fastmcp'"
+
 ```bash
 pip3 install fastmcp>=3.4.0
 ```
 
 ### "No module named 'vanna'"
+
 ```bash
 pip3 install "vanna[chromadb]"
 ```
 
-### "EvtxECmd not found" al parsear EVTX
-El sistema usará automáticamente `python-evtx` como fallback. Para instalar EvtxECmd:
+### "EvtxECmd not found" when parsing EVTX
+
+The system will automatically use `python-evtx` as a fallback. To install EvtxECmd on SIFT:
+
 ```bash
-# En SIFT ya debería estar disponible como:
 dotnet /opt/zimmermantools/EvtxeCmd/EvtxECmd.dll --help
 ```
 
 ### "claude: command not found"
-Claude Code CLI no está instalado o no está en PATH:
+
+Claude Code CLI is not installed or not in PATH:
+
 ```bash
 which claude
-# Si no aparece, seguir instrucciones de instalación en claude.ai/code
+# If nothing appears, follow install instructions at claude.ai/code
 ```
 
-### El MCP server no conecta con Claude Code
-Verificar que el path en settings.json es absoluto y correcto:
+### MCP server does not connect to Claude Code
+
+Verify the path in `settings.json` is absolute and correct:
+
 ```bash
 cat ~/.claude/settings.json | python3 -m json.tool | grep -A5 "dfirllama"
-# Debe mostrar el path completo a server.py
+# Should show the full path to server.py
 ```
 
-### Ollama no responde
+### Ollama not responding
+
 ```bash
-ollama serve       # iniciar el servidor
-ollama list        # verificar modelos instalados
-ollama pull mistral:7b  # descargar el modelo si no está
+ollama serve       # start the server
+ollama list        # check installed models
+ollama pull mistral:7b  # download the model if missing
 ```
 
-### "timeout" en analyze_ioc
-El agente ReAct espera respuesta de APIs externas (ipinfo.io, Google DNS).
-En entornos air-gap, estas llamadas fallarán. Solución:
-```bash
-# El agente continuará sin esos datos y marcará el IOC como "unverified"
-# Para forzar modo air-gap completo, bloquear las llamadas a nivel de red
-```
+### "timeout" in analyze_ioc
 
-### Los resultados del benchmark no coinciden con el paper
-El benchmark `--dry-run` usa SQL de ground truth directamente (F1=100%).
-Para resultados con LLM real, necesitas Ollama configurado:
+The ReAct agent waits for external API responses (ipinfo.io, Google DNS). In air-gap environments these calls will fail. The agent will continue without those results and mark the IOC as "unverified". To force full air-gap mode, block the calls at the network level.
+
+### Benchmark results do not match the paper
+
+The `--dry-run` benchmark uses ground truth SQL directly (F1=100%). For results with a live LLM, configure Ollama first:
+
 ```bash
 python3 benchmark/run_benchmark.py --model mistral:7b --db demo/data/tslsm_demo.db
 ```
 
 ---
 
-## 10. Referencia rápida de herramientas
+## 10. Tool Quick Reference
 
-### Llamar herramientas directamente desde Python
+### Calling tools directly from Python
 
 ```python
 import sys
-sys.path.insert(0, '/ruta/a/dfirllama-sift')
+sys.path.insert(0, '/path/to/dfirllama-sift')
 
-# NL→SQL sobre EVTX
+# NL→SQL over EVTX
 from tools.nlsql import query_nl
-result = query_nl('/tmp/Security.db', '¿Hubo logons fallidos masivos?')
-print(result['sql'])          # SQL generada
-print(result['row_count'])    # filas encontradas
-print(result['results'])      # datos
+result = query_nl('/tmp/Security.db', 'Were there mass login failures?')
+print(result['sql'])          # generated SQL
+print(result['row_count'])    # rows returned
+print(result['results'])      # data
 
-# Parsear EVTX
+# Parse EVTX
 from tools.evtx_tools import evtx_to_sqlite
 r = evtx_to_sqlite('/cases/Security.evtx')
-db_path = r['db_path']        # usar este en query_nl
+db_path = r['db_path']        # use this in query_nl
 
-# Investigar IOC
+# Investigate IOC
 from tools.ioc_tools import analyze_ioc
 r = analyze_ioc('102.20.90.8', 'ip')
 print(r['verdict'])
 
-# Extraer IOCs de texto
+# Extract IOCs from text
 from tools.ioc_tools import extract_iocs
-r = extract_iocs("La IP 192.168.1.1 se conectó a evil.com el 2024-06-22")
-print(r['iocs'])              # lista de IOCs estructurados
+r = extract_iocs("IP 192.168.1.1 connected to evil.com on 2024-06-22")
+print(r['iocs'])
 
-# Mapear a MITRE ATT&CK
+# Map to MITRE ATT&CK
 from tools.sift_tools import map_to_mitre
-r = map_to_mitre("PowerShell ejecutó payload Base64. IP africana en logs RDP.", "IR-001")
+r = map_to_mitre("PowerShell executed Base64 payload. African IP in RDP logs.", "IR-001")
 print(r['technique_count'])
-# r['navigator_layer'] → importar en attack-navigator
+# r['navigator_layer'] → import in attack-navigator
 
-# Validar hallazgos
+# Validate findings
 from tools.validator import validate_findings
 findings = [
     {"description": "Admin from 102.20.90.8", "ioc_type": "ip",
@@ -696,58 +717,58 @@ findings = [
      "evidence_citation": "EventId=21 RemoteHost=102.20.90.8"}
 ]
 r = validate_findings(findings, evidence_db='/tmp/Security.db')
-print(r['hallucination_score'])  # 0.0 = todo verificado
-print(r['needs_correction'])     # True si hay contradicciones
+print(r['hallucination_score'])  # 0.0 = all verified
+print(r['needs_correction'])     # True if contradictions found
 ```
 
-### Herramientas Zimmerman desde Python
+### Zimmerman Tools from Python
 
 ```python
 from tools.zimmerman_tools import amcache_parse, prefetch_parse, registry_query
 
-# Ejecución de programas
+# Program execution history
 r = amcache_parse('/cases/Amcache.hve')
-print(r['summary']['suspicious_paths'])   # ejecutables en rutas sospechosas
+print(r['summary']['suspicious_paths'])   # executables in suspicious paths
 
-# Timestamps de ejecución
+# Execution timestamps
 r = prefetch_parse('/cases/Windows/Prefetch/')
 print(r['suspicious_executables'])        # powershell, cmd, mshta, etc.
 
-# Persistencia en registro
+# Registry persistence
 r = registry_query('/cases/NTUSER.DAT',
                    'Software\\Microsoft\\Windows\\CurrentVersion\\Run')
 print(r['data'])
 ```
 
-### Variables de entorno disponibles
+### Available Environment Variables
 
-| Variable | Default | Descripción |
+| Variable | Default | Description |
 |---------|---------|-------------|
-| `LLM_BACKEND` | `auto` | `claude`, `claude-api`, `ollama` |
-| `ANTHROPIC_API_KEY` | — | API key de Anthropic (si LLM_BACKEND=claude-api) |
-| `OLLAMA_BASE_URL` | `http://localhost:11434/v1` | URL del servidor Ollama |
-| `OLLAMA_MODEL` | `mistral:7b` | Modelo a usar con Ollama |
-| `CLAUDE_MODEL` | `claude-haiku-4-5-20251001` | Modelo Claude a usar |
-| `EVIDENCE_ROOT` | `/cases` | Directorio raíz de evidencia (guardrail) |
-| `AUDIT_LOG` | `/tmp/dfirllama_audit.log` | Ruta del audit trail |
-| `CHROMA_PATH` | `/tmp/dfirllama_chroma` | Base de datos vectorial de Vanna |
+| `LLM_BACKEND` | `auto` | `auto`, `claude-cli`, `claude-api`, `ollama` |
+| `ANTHROPIC_API_KEY` | — | Anthropic API key (if LLM_BACKEND=claude-api) |
+| `OLLAMA_BASE_URL` | `http://localhost:11434/v1` | Ollama server URL |
+| `OLLAMA_MODEL` | `mistral:7b` | Model to use with Ollama |
+| `CLAUDE_MODEL` | `claude-haiku-4-5-20251001` | Claude model to use |
+| `EVIDENCE_ROOT` | `/cases` | Evidence root directory (path guardrail) |
+| `AUDIT_LOG` | `/tmp/dfirllama_audit.log` | Audit trail path |
+| `CHROMA_PATH` | `/tmp/dfirllama_chroma` | Vanna vector database path |
 
 ---
 
-## Estructura de archivos de outputs
+## Output File Structure
 
 ```
-./analysis/                          ← directorio de salida
-├── evidence_manifest.json           ← inventario con hashes SHA256
-├── orient_results.json              ← eje temporal y stats de EVTX
-├── interrogate_findings.json        ← hallazgos del triage NL→SQL
-├── enrich_results.json              ← resultados de investigación de IOCs
-├── validation_results.json          ← validate_findings con hallucination_score
-├── eil_session.json                 ← metadata de la sesión EIL
-├── IR-XXXX_findings.json            ← reporte completo JSON
+./analysis/                          ← output directory
+├── evidence_manifest.json           ← inventory with SHA256 hashes
+├── orient_results.json              ← temporal axis and EVTX stats
+├── interrogate_findings.json        ← NL→SQL triage findings
+├── enrich_results.json              ← IOC investigation results
+├── validation_results.json          ← validate_findings with hallucination_score
+├── eil_session.json                 ← EIL session metadata
+├── IR-XXXX_findings.json            ← full JSON report
 ├── IR-XXXX_navigator.json           ← ATT&CK Navigator layer
-├── IR-XXXX_executive_summary.md     ← reporte para el cliente
-└── forensic_audit.log               ← audit trail JSONL de cada tool call
+├── IR-XXXX_executive_summary.md     ← client report
+└── forensic_audit.log               ← JSONL audit trail of every tool call
 ```
 
 ---

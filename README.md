@@ -12,7 +12,7 @@
 > **▶ Watch demo online:** https://asciinema.org/a/6E3663MpOdXoFR2C  
 > **Play locally:** `asciinema play demo/dfirllama_demo.cast`
 
-DFIRLlama-SIFT extends Protocol SIFT with two original contributions: **NL→SQL forensic interrogation** of EVTX logs that scales to arbitrarily large datasets, and **active hallucination validation** with self-correction triggers.
+DFIRLlama-SIFT extends Protocol SIFT with two original contributions: **NL→SQL forensic interrogation** of EVTX logs that queries SQLite and returns bounded result sets regardless of underlying dataset size, and **active hallucination validation** with self-correction triggers.
 
 ---
 
@@ -107,7 +107,7 @@ Switch with one env var: `LLM_BACKEND=ollama`
 | Tool | What it does |
 |------|-------------|
 | `evtx_to_sqlite` | Parse .evtx → SQLite using EvtxECmd (fallback: python-evtx) |
-| `query_forensic_db` | Natural language → SQL → exact results. Scales to any dataset size. |
+| `query_forensic_db` | Natural language → SQL → exact results. Returns bounded result sets regardless of underlying dataset size. |
 
 ### IOC Intelligence
 | Tool | What it does |
@@ -192,12 +192,9 @@ PHASE 6  REPORT       ATT&CK mapping + Navigator layer + IR report markdown
 
 *Dry-run (ground truth SQL). LLM results pending model configuration. Run: `python3 benchmark/run_benchmark.py --dry-run`*
 
-### Comparative Context
+### Baseline Context
 
-| System | Dataset | F1 |
-|--------|---------|-----|
-| Naive LLM baseline [DFIR-Metric] | NIST CFReDS Mr. Evil | 25.6% |
-| **DFIRLlama-SIFT NL→SQL GT** | **Synthetic RDP Compromise (1,800 events)** | **100%** |
+This benchmark does not rank against other submissions. It shows why bounded SQL interrogation is safer than direct full-log prompting: naive LLM ingestion of raw event logs produces hallucination rates of 59–82% at scale (HalluLens, arxiv 2504.17550), while NL→SQL constrains the LLM to generating a short SQL query against a bounded result set.
 
 ### IOC Extraction — Hallucination Rate
 
@@ -238,7 +235,7 @@ pip install -r requirements.txt
 ```bash
 cp .env.example .env
 # Edit .env:
-#   LLM_BACKEND=claude   (hackathon mode, uses Claude Code)
+#   LLM_BACKEND=auto     (auto-detect: claude-cli → claude-api → ollama)
 #   LLM_BACKEND=ollama   (air-gap production mode)
 #   EVIDENCE_ROOT=/cases (path guardrail)
 ```
@@ -254,7 +251,7 @@ Add to `~/.claude/settings.json`:
       "command": "python3",
       "args": ["/path/to/dfirllama-sift/server.py"],
       "env": {
-        "LLM_BACKEND": "claude",
+        "LLM_BACKEND": "auto",
         "EVIDENCE_ROOT": "/cases",
         "AUDIT_LOG": "/tmp/dfirllama_audit.log"
       }

@@ -74,10 +74,23 @@ Hallucination reduction: **10x** with structured output.
 
 ---
 
-## Comparison with Related Work
+## Baseline Context
+
+This report does not rank against other submissions. It shows why bounded SQL interrogation outperforms direct full-log prompting: naive LLM ingestion of raw event logs produces hallucination rates of 25.6–82% at scale, while NL→SQL constrains the LLM to generating a short SQL query against a bounded result set.
 
 | System | Dataset | F1 |
 |--------|---------|-----|
 | Naive LLM baseline [DFIR-Metric] | NIST CFReDS Mr. Evil | 25.6% |
 | **DFIRLlama-SIFT (dry-run)** | **Synthetic RDP Compromise** | **100%** |
-| **DFIRLlama-SIFT (live LLM)** | **Real Attacks (sample)** | **100%** |
+| **DFIRLlama-SIFT (live LLM)** | **Real Attacks (sample, 7 questions)** | **100%** |
+
+---
+
+## Known Limitations
+
+- **Full 20-question live LLM benchmark pending.** The dry-run validates ground truth SQL correctness, not model generation quality. Live LLM results cover a 7-question sample only.
+- **Self-correction tested on controlled contradictions.** The 3/3 correction rate was measured on synthetic contradictions injected into test findings, not on all possible hallucination classes in the wild.
+- **IOC enrichment may leak IOC values externally** unless `OFFLINE_MODE` is enabled or network access is blocked. Analysts in air-gap environments should use `LLM_BACKEND=ollama` and block external DNS/HTTP.
+- **EVTX parsing depends on EvtxECmd availability.** The `python-evtx` fallback provides reduced field coverage; results may differ from EvtxECmd output on the same file.
+- **SQLite has practical limits.** NL→SQL scales better than direct LLM ingestion, but very large datasets (>10M events) may require index tuning or chunking before ingestion.
+- **Hallucination score is dataset-dependent.** The 5.6% rate was measured on a synthetic RDP compromise dataset. Real-world cases with more ambiguous evidence may produce different rates.
