@@ -125,14 +125,15 @@ class EILAgent:
     Ejecuta las 6 fases del EIL usando un loop Thought/Action/Observation.
     """
 
-    def __init__(self, case_dir: str, output_dir: str = "./analysis"):
-        self.case_dir    = Path(case_dir).resolve()
-        self.output_dir  = Path(output_dir)
+    def __init__(self, case_dir: str, output_dir: str = "./analysis", no_deep_dive: bool = False):
+        self.case_dir     = Path(case_dir).resolve()
+        self.output_dir   = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
+        self.no_deep_dive = no_deep_dive
         # Allow guardrails to access the case directory
         if str(self.case_dir) not in os.environ.get("EVIDENCE_ROOT", "/cases"):
             os.environ["EVIDENCE_ROOT"] = str(self.case_dir)
-        self.tools       = _load_tools(str(self.case_dir))
+        self.tools        = _load_tools(str(self.case_dir))
         self.findings    = []        # hallazgos acumulados
         self.evtx_dbs    = {}        # {evtx_name: db_path}
         self.iocs_found  = []        # IOCs para ENRICH
@@ -441,8 +442,8 @@ REGLAS:
         out.write_text(json.dumps(findings, indent=2, ensure_ascii=False))
         log(f"{len(findings)} hallazgos → {out}")
 
-        # ReAct deep dive (skip if no findings to avoid empty loops)
-        if findings and self.evtx_dbs:
+        # ReAct deep dive (skip in demo/no-deep-dive mode for reliable execution)
+        if findings and self.evtx_dbs and not self.no_deep_dive:
             db_path = next(iter(self.evtx_dbs.values()))
             context = f"EVTX DB: {db_path}\nHallazgos iniciales: {len(findings)}\n"
             context += "IPs sospechosas encontradas: " + str(
@@ -750,6 +751,8 @@ Ejemplos:
                    help="Fase desde donde empezar")
     p.add_argument("--demo",          action="store_true",
                    help="Modo demo — usa tslsm_demo.db directamente")
+    p.add_argument("--no-deep-dive",  action="store_true",
+                   help="Saltar ReAct deep-dive en Phase 3 (más rápido, recomendado en demo)")
     args = p.parse_args()
 
     case_dir = args.case_dir
@@ -769,7 +772,10 @@ Ejemplos:
 
     incident_id = args.id or f"IR-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M')}"
 
-    agent = EILAgent(case_dir=case_dir, output_dir=args.output)
+    # In demo mode, skip ReAct deep-dive by default for reliable execution
+    no_deep_dive = args.no_deep_dive or args.demo
+
+    agent = EILAgent(case_dir=case_dir, output_dir=args.output, no_deep_dive=no_deep_dive)
     agent.run(incident_id=incident_id, start_phase=args.phase)
 
 
