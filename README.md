@@ -249,22 +249,17 @@ cp .env.example .env
 
 ### 3. Register MCP server
 
-Add to `~/.claude/settings.json`:
+Run from inside the cloned directory:
 
-```json
-{
-  "mcpServers": {
-    "dfirllama-sift": {
-      "command": "python3",
-      "args": ["/path/to/dfirllama-sift/server.py"],
-      "env": {
-        "LLM_BACKEND": "auto",
-        "EVIDENCE_ROOT": "/cases",
-        "AUDIT_LOG": "/tmp/dfirllama_audit.log"
-      }
-    }
-  }
-}
+```bash
+claude mcp add dfirllama-sift python3 "$PWD/server.py" \
+  --env LLM_BACKEND=auto \
+  --env EVIDENCE_ROOT=/cases \
+  --env AUDIT_LOG=/tmp/dfirllama_audit.log \
+  --env CHROMA_PATH=/tmp/dfirllama_chroma
+
+claude mcp list
+# Expected: dfirllama-sift ... ✓ Connected
 ```
 
 ### 4. Install EIL skill

@@ -128,32 +128,23 @@ AUDIT_LOG=/tmp/dfirllama_audit.log
 
 ### Step 4 — Register the MCP server with Claude Code
 
-Open the Claude Code settings file:
+Run from inside the cloned directory (`$PWD` resolves automatically):
 
 ```bash
-nano ~/.claude/settings.json
+claude mcp add dfirllama-sift python3 "$PWD/server.py" \
+  --env LLM_BACKEND=auto \
+  --env EVIDENCE_ROOT=/cases \
+  --env AUDIT_LOG=/tmp/dfirllama_audit.log \
+  --env CHROMA_PATH=/tmp/dfirllama_chroma
 ```
 
-Add the `mcpServers` section (if the file already exists, add it inside the JSON object):
+Verify the server is connected:
 
-```json
-{
-  "mcpServers": {
-    "dfirllama-sift": {
-      "command": "python3",
-      "args": ["/home/YOUR_USERNAME/dfirllama-sift/server.py"],
-      "env": {
-        "LLM_BACKEND": "auto",
-        "EVIDENCE_ROOT": "/cases",
-        "AUDIT_LOG": "/tmp/dfirllama_audit.log"
-      }
-    }
-  }
-}
+```bash
+claude mcp list
+# Expected output:
+# dfirllama-sift: python3 /path/to/server.py - ✓ Connected
 ```
-
-> **Important:** Replace `/home/YOUR_USERNAME/` with the actual path.  
-> To find it: run `pwd` from the project directory.
 
 ### Step 5 — Install the EIL skill in Claude Code
 
