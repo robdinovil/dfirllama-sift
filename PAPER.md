@@ -106,16 +106,6 @@ Los benchmarks NL-to-SQL más citados —Spider, BIRD, NL2SQLBench (2026)— rep
 
 El dominio forense introduce restricciones específicas que los benchmarks generales no cubren: la semántica de EventIDs (¿qué significa EventId 21 en contexto TSLSM?), la distinción entre IPs internas y externas (¿cuándo es sospechosa una IP 10.x.x.x?), y las particularidades de schemas de herramientas forenses como EvtxECmd o MFTECmd. Nuestro benchmark de 20 preguntas llena esta brecha de evaluación para el dominio EVTX/TSLSM.
 
-### 2.4 Submissions del Hackathon: Análisis Comparativo
-
-Los submissions públicamente disponibles del hackathon adoptan el patrón predominante: envolver herramientas SIFT nativas en MCP y pasar el output textual al LLM.
-
-*marez8505/find-evil* implementa 8 herramientas MCP con un flujo de 5 fases fijas (Triage → Disco → Memoria → Persistencia → Correlación) y evaluación por fase. El análisis de EVTX sigue el patrón convencional: EvtxECmd → CSV → LLM interpreta.
-
-*dhyabi2/findevil* implementa el Iterative Assumption-Based Framework (IABF) con 200+ herramientas, generación dinámica de hipótesis mapeadas a MITRE ATT&CK, y pesos de confianza por hallazgo. Logra F1=100% en el dataset NIST CFReDS "Mr. Evil" (31 preguntas de investigadores), un resultado notablemente fuerte en un dataset establecido. El análisis de EVTX también sigue el patrón convencional, sin NL→SQL. Utiliza OpenRouter como backend LLM, no Claude Code ni OpenClaw.
-
-Ningún submission disponible implementa NL→SQL sobre EVTX, un validador activo de alucinaciones con disparadores de auto-corrección, ni evaluación cuantitativa en múltiples datasets de incidentes reales.
-
 ---
 
 ## 3. ARQUITECTURA DEL SISTEMA
@@ -273,13 +263,7 @@ La distinción entre guardrails arquitectónicos (código) y comportamentales (p
 
 **Uso en evaluación:** Benchmark de NL→SQL con datos reales (7/7 preguntas correctas en test de muestra).
 
-### 4.2 Dataset 2: NIST CFReDS "Mr. Evil" (Comparación con Estado del Arte)
-
-**Descripción:** Imagen de disco Dell Latitude CPi disponible públicamente en el NIST CFReDS Archive, con 31 preguntas de investigadores como ground truth. Usado por dhyabi2/findevil para reportar F1=100%.
-
-**Uso en evaluación:** Comparación directa con el submission de mayor desempeño documentado. Este dataset no incluye EVTX modernos ni artefactos Windows post-Vista, lo que limita la cobertura de las herramientas EZ Tools y la capacidad NL→SQL.
-
-### 4.3 Métricas de Evaluación
+### 4.2 Métricas de Evaluación
 
 Siguiendo los estándares de DFIR-Metric [1] y AutoDFBench [2]:
 
@@ -320,7 +304,6 @@ El baseline de ground truth confirma que las 20 preguntas tienen SQL verificada 
 | Sistema | Dataset | F1 |
 |---------|---------|-----|
 | Naive LLM (baseline) [1] | NIST CFReDS Mr. Evil | 25.6% |
-| dhyabi2/findevil | NIST CFReDS Mr. Evil | 100% |
 | DFIRLlama-SIFT NL→SQL GT | Synthetic RDP Compromise | 100% |
 | Claude-3.5 Sonnet (general) [8] | Spider (genérico) | ~41% |
 

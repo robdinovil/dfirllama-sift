@@ -79,6 +79,5 @@ Hallucination reduction: **10x** with structured output.
 | System | Dataset | F1 |
 |--------|---------|-----|
 | Naive LLM baseline [DFIR-Metric] | NIST CFReDS Mr. Evil | 25.6% |
-| dhyabi2/findevil | NIST CFReDS Mr. Evil | 100% |
 | **DFIRLlama-SIFT (dry-run)** | **Synthetic RDP Compromise** | **100%** |
 | **DFIRLlama-SIFT (live LLM)** | **Real Attacks (sample)** | **100%** |

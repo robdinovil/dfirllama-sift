@@ -197,7 +197,6 @@ PHASE 6  REPORT       ATT&CK mapping + Navigator layer + IR report markdown
 | System | Dataset | F1 |
 |--------|---------|-----|
 | Naive LLM baseline [DFIR-Metric] | NIST CFReDS Mr. Evil | 25.6% |
-| dhyabi2/findevil | NIST CFReDS Mr. Evil | 100% |
 | **DFIRLlama-SIFT NL→SQL GT** | **Synthetic RDP Compromise (1,800 events)** | **100%** |
 
 ### IOC Extraction — Hallucination Rate
@@ -372,24 +371,6 @@ All constraints are **architectural** (code-level), not prompt-level:
 - **Path boundaries:** `check_path()` validates every file argument against `EVIDENCE_ROOT`, `/tmp`, `/home`, `/var/log`. Paths outside this scope raise `ValueError` before the tool executes.
 - **Audit trail:** Every tool call is logged to `AUDIT_LOG` in JSONL format: UTC timestamp, tool name, arguments (truncated), result summary. Compatible with hackathon "agent execution logs" requirement.
 - **No write to evidence:** Writing to `/cases/`, `/mnt/`, `/media/` is blocked. All outputs go to `./analysis/`, `./reports/`, `./exports/`, or `/tmp/`.
-
----
-
-## Comparison with Other Submissions
-
-| Capability | DFIRLlama-SIFT | marez8505 | dhyabi2 | Valhuntir | ForensIQ |
-|-----------|:--------------:|:---------:|:-------:|:---------:|:--------:|
-| NL→SQL over EVTX | ✅ **unique** | ❌ | ❌ | ❌ | ❌ |
-| Active hallucination validator | ✅ **unique** | ❌ | ❌ | ❌ | ❌ |
-| Self-correction triggers | ✅ **unique** | ❌ | ❌ | ❌ | ❌ |
-| Quantitative benchmark | ✅ **unique** | ❌ | ❌ | ❌ | ❌ |
-| Protocol SIFT / Claude Code | ✅ | ✅ | ❌* | ❌ | ❌ |
-| Zimmerman Tools (9) | ✅ | partial | partial | partial | ❌ |
-| Memory analysis | ✅ | ✅ | ✅ | ✅ | ❌ |
-| Air-gap mode (Ollama) | ✅ | ❌ | ❌ | partial | ✅ |
-| Academic paper | ✅ | ❌ | ❌ | ❌ | ❌ |
-
-*dhyabi2 uses OpenRouter (cloud LLM), not Claude Code — may not meet Protocol SIFT requirements.
 
 ---
 
