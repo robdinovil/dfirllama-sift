@@ -329,10 +329,9 @@ def run_benchmark(db_path: str, model: str = "qwen2.5:14b",
             correct_d = sum(1 for r in subset if r["correct"])
             print(f"  {diff.capitalize():8}: {correct_d}/{len(subset)} correctas ({correct_d/len(subset):.0%})")
 
-    print(f"\n  Contexto comparativo (DFIR-Metric 2505.19973):")
-    print(f"  — Naive LLM baseline en NIST CFReDS: F1=25.6%")
-    print(f"  — dhyabi2/findevil en NIST CFReDS:   F1=100% (un dataset, sin NL→SQL)")
-    print(f"  — DFIRLlama-SIFT NL→SQL:            F1={f1:.1%} (dominio DFIR, Vanna+schema)")
+    print(f"\n  Baseline context (DFIR-Metric 2505.19973):")
+    print(f"  — Naive LLM baseline (NIST CFReDS): F1=25.6%")
+    print(f"  — DFIRLlama-SIFT NL→SQL:            F1={f1:.1%} (bounded SQL vs direct LLM ingestion)")
     print(f"{'═'*70}\n")
 
     # Guardar resultados
