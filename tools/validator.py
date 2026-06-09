@@ -369,3 +369,71 @@ def _overall_verdict(score: float) -> str:
         return "REQUIERE REVISIÓN — tasa de alucinación significativa"
     else:
         return "ALTO RIESGO — más del 25% de hallazgos no verificados"
+
+
+# ── Confidence enrichment ─────────────────────────────────────────────────────
+
+def enrich_findings(validation_result: dict, findings: list[dict]) -> dict:
+    """
+    Layer FindingScore confidence onto the output of validate_findings().
+
+    For each finding detail in validation_result['details'], computes a
+    confidence score (FindingScore: confidence, fp_risk, risk_label) using
+    tools/confidence.py and attaches it as a 'score' key.
+
+    The validation status modulates the score:
+      confirmed     → full score_finding output
+      unverified    → confidence capped at 0.5, fp_risk elevated
+      contradicted  → confidence 0.1, fp_risk high
+      invalid_format → confidence 0.0, fp_risk high
+
+    Args:
+        validation_result: Output dict from validate_findings()
+        findings:          Original findings list passed to validate_findings()
+
+    Returns:
+        Same validation_result dict with 'score' added to each detail entry.
+    """
+    from tools.confidence import score_finding
+
+    details = validation_result.get("details", [])
+
+    for i, detail in enumerate(details):
+        orig    = findings[i] if i < len(findings) else {}
+        status  = detail.get("status", "unverified")
+        count   = orig.get("count", 1)
+
+        # Corroborated only if DB explicitly confirmed it
+        corroborated = (status == "confirmed")
+
+        rule_id = (
+            orig.get("mitre_technique", "") or
+            orig.get("rule_id", "") or
+            f"FINDING-{i:03d}"
+        )
+
+        try:
+            sc = score_finding(rule_id, count, corroborated)
+
+            # Status-based override for contradicted/invalid findings
+            if status == "contradicted":
+                sc.confidence = min(sc.confidence, 0.15)
+                sc.fp_risk    = "high"
+            elif status == "invalid_format":
+                sc.confidence = 0.0
+                sc.fp_risk    = "high"
+            elif status == "unverified":
+                sc.confidence = min(sc.confidence, 0.50)
+                if sc.fp_risk == "low":
+                    sc.fp_risk = "medium"
+
+            detail["score"] = {
+                "confidence": round(sc.confidence, 2),
+                "fp_risk":    sc.fp_risk,
+                "risk_label": sc.risk_label,
+                "corroborated": sc.corroborated,
+            }
+        except Exception:
+            detail["score"] = None
+
+    return validation_result

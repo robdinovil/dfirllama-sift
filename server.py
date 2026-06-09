@@ -29,7 +29,7 @@ from fastmcp import FastMCP
 
 # Importar herramientas
 from tools.evtx_tools import evtx_to_sqlite, query_evtx_nl
-from tools.nlsql import query_nl
+from tools.nlsql import query_nl, DFIRLlamaAnalyst
 from tools.ioc_tools import analyze_ioc, extract_iocs
 from tools.sift_tools import volatility_run, log2timeline_run, yara_scan, map_to_mitre
 from tools.zimmerman_tools import (
@@ -37,7 +37,12 @@ from tools.zimmerman_tools import (
     mft_timeline, lnk_parse, shellbag_parse, jumplist_parse, recycle_bin_parse,
 )
 from tools.forensic_tools import bulk_extract, pcap_analyze, strings_extract, file_hash
-from tools.validator import validate_findings
+from tools.validator import validate_findings, enrich_findings
+from tools.ingestor import ForensicIngestor
+from tools.hunt import threat_hunt, ioc_correlate
+from tools.triage import run_triage
+from tools.eil import investigate
+from tools.report import generate_report
 from llm.client import get_model_name
 
 # ── Inicializar servidor ──────────────────────────────────────────────────────
@@ -46,23 +51,34 @@ mcp = FastMCP(
     name="DFIRLlama-SIFT",
     instructions=(
         "You are a DFIR analyst assistant with access to forensic tools from the SIFT workstation "
-        "and the DFIRLlama NL→SQL engine for EVTX analysis. "
-        "All evidence access is read-only. All tool calls are logged to an audit trail. "
-        "Available tools:\n"
-        "- evtx_to_sqlite: parse .evtx to SQLite\n"
-        "- query_evtx_nl: ask forensic questions in natural language over EVTX events\n"
-        "- volatility_run: run Volatility3 plugins on memory images\n"
-        "- log2timeline_run: build supertimeline with plaso\n"
-        "- yara_scan: scan files with YARA rules\n"
-        "- analyze_ioc: investigate IPs, domains, URLs, hashes with a ReAct agent\n"
-        "- extract_iocs: extract structured IOCs from text\n"
-        "- map_to_mitre: map triage findings to MITRE ATT&CK techniques\n\n"
-        "Workflow for 'find evil' investigations:\n"
-        "1. Parse EVTX files with evtx_to_sqlite\n"
-        "2. Ask forensic questions with query_evtx_nl to find suspicious activity\n"
-        "3. Investigate suspicious IPs/domains with analyze_ioc\n"
-        "4. Map findings to MITRE ATT&CK with map_to_mitre\n"
-        "5. If memory image available, run volatility_run plugins\n"
+        "and the DFIRLlama intelligence pipeline for autonomous incident investigation.\n"
+        "All evidence access is read-only. All tool calls are logged to an audit trail.\n\n"
+        "CORE PIPELINE (normalized evidence → auto-investigation → report):\n"
+        "1. ingest_evidence_dir  — parse EVTX/CSV/netstat/reg/systeminfo → normalized SQLite\n"
+        "2. threat_hunt          — run 19 MITRE ATT&CK rules, LLM-free, sub-second\n"
+        "3. correlate_ioc        — cross-table pivot search for any IOC\n"
+        "4. triage_case          — rapid severity/attack_phase classification (~90s)\n"
+        "5. investigate_case     — autonomous ReAct investigation loop (up to 8 steps)\n"
+        "6. generate_ir_report   — NIST 800-61 DOCX report with exec summary\n\n"
+        "NL→SQL ENGINE:\n"
+        "- query_forensic_db     — natural language questions over any forensic SQLite\n"
+        "  Uses DFIRLlamaAnalyst (BM25 + 100+ training pairs + 4-layer SQL validator)\n"
+        "  Fallback to query_nl for legacy single-table schemas\n\n"
+        "SIFT TOOLS:\n"
+        "- evtx_to_sqlite       — legacy single-EVTX parser (use ingest_evidence_dir for multi-file)\n"
+        "- volatility_run       — Volatility3 plugins on memory images\n"
+        "- log2timeline_run     — Plaso supertimeline\n"
+        "- yara_scan            — YARA rule scanning\n"
+        "- analyze_ioc          — ReAct threat intelligence agent\n"
+        "- extract_iocs         — structured IOC extraction\n"
+        "- map_to_mitre         — ATT&CK technique mapping\n"
+        "- amcache/prefetch/shimcache/registry/mft/lnk/shellbag/jumplist/recycle_bin\n"
+        "- bulk_extract / pcap_analyze / strings_extract / file_hash\n\n"
+        "RECOMMENDED 4-PHASE EIL WORKFLOW:\n"
+        "  INGEST   → ingest_evidence_dir (all artifacts at once)\n"
+        "  HUNT     → threat_hunt_tool + triage_case_tool\n"
+        "  INTERROGATE → investigate_case_tool (autonomous) or query_forensic_db_tool (manual)\n"
+        "  REPORT   → validate_findings_tool + generate_ir_report_tool\n"
     ),
 )
 
@@ -98,22 +114,37 @@ def query_evtx_nl_tool(db_path: str, question: str, train_first: bool = False) -
 @mcp.tool()
 def query_forensic_db_tool(db_path: str, question: str) -> dict:
     """
-    Ask a forensic question in natural language about a parsed EVTX SQLite database.
-    Translates the question to SQL using the DFIRLlama NL→SQL engine, executes it,
-    and returns the exact results. Works with any configured LLM backend.
-    This is the DFIRLlama differentiator — no other SIFT tool provides this capability.
+    Ask a forensic question in natural language about a forensic SQLite database.
+    Uses DFIRLlamaAnalyst (Tier 1): BM25 retrieval over 100+ DFIR training examples,
+    4-layer SQL validator, auto-correction on hallucination. Falls back to query_nl
+    for legacy single-table schemas.
+
+    Works with databases from both evtx_to_sqlite (legacy) and ingest_evidence_dir
+    (normalized multi-table schema with events, processes, network_connections, etc.)
 
     Example questions:
     - "Were there any external RDP connections?"
-    - "Show PowerShell executions with -ExecutionPolicy Bypass"
-    - "Did the administrator account connect from multiple different IPs on the same day?"
-    - "Were there any log clearing events (EventId 1102)?"
+    - "Show PowerShell executions with encoded commands"
+    - "Which IPs caused the most failed logons?"
+    - "Were there any log clearing events?"
+    - "Show LSASS access events from Sysmon"
+    - "TA0003 — what persistence mechanisms were found?"
 
     Args:
-        db_path:     Path to the SQLite database created by evtx_to_sqlite.
-        question:    Forensic question in English or Spanish.
-        train_first: Unused (kept for compatibility). NL→SQL engine auto-detects schema.
+        db_path:   Path to the forensic SQLite database.
+        question:  Forensic question in English or Spanish.
     """
+    analyst = DFIRLlamaAnalyst(db_path)
+    analyst.train()
+    result = analyst.ask(question)
+    if result.get("ok"):
+        # Serialize DataFrame to records for MCP transport
+        df = result.get("result")
+        if df is not None:
+            result["results"] = df.to_dict("records")[:100]
+            del result["result"]
+        return result
+    # Fallback to legacy engine
     return query_nl(db_path, question)
 
 
@@ -431,6 +462,206 @@ def validate_findings_tool(findings: list, evidence_db: str = "",
         evidence_db or None,
         source_text or None,
     )
+
+
+# ── New intelligence pipeline tools ──────────────────────────────────────────
+
+@mcp.tool()
+def ingest_evidence_dir_tool(evidence_path: str, output_db: str = "") -> dict:
+    """
+    Ingest a directory of forensic artifacts into a normalized SQLite database.
+    Auto-detects and parses: .evtx (EVTX), .csv (process/task/event lists),
+    netstat output, .reg exports, and systeminfo output.
+
+    All data is mapped into a normalized schema with 8 tables:
+    events, processes, network_connections, dns_cache, scheduled_tasks,
+    registry_keys, sysinfo, evidence_files.
+
+    This is the entry point for the DFIRLlama intelligence pipeline.
+    After ingestion, use threat_hunt_tool → triage_case_tool → investigate_case_tool.
+
+    Args:
+        evidence_path: Directory containing forensic artifacts to ingest.
+        output_db:     Output SQLite path. Defaults to /tmp/dfirllama_<name>.db
+    """
+    from pathlib import Path
+    import time
+    t0 = time.time()
+
+    if not output_db:
+        safe = Path(evidence_path).name.replace(" ", "_")
+        output_db = f"/tmp/dfirllama_{safe}.db"
+
+    ingestor = ForensicIngestor(output_db)
+    results  = ingestor.ingest_directory(evidence_path)
+    summary  = ingestor.summary()
+    ingestor.close()
+
+    ok_count  = sum(1 for r in results if not r.get("error"))
+    err_count = len(results) - ok_count
+
+    return {
+        "ok":          True,
+        "db_path":     output_db,
+        "files_processed": len(results),
+        "files_ok":    ok_count,
+        "files_error": err_count,
+        "table_counts": summary,
+        "elapsed_s":   round(time.time() - t0, 1),
+        "details":     results,
+    }
+
+
+@mcp.tool()
+def threat_hunt_tool(db_path: str) -> dict:
+    """
+    Run 19 MITRE ATT&CK detection rules against a forensic evidence database.
+    LLM-free, sub-second. Covers processes, events, network connections,
+    scheduled tasks, and registry keys.
+
+    Techniques detected (sample): T1059.001 (Encoded PS), T1003 (Credential Dump),
+    T1078 (Valid Accounts), T1036 (Masquerading), T1053.005 (Sched Task),
+    T1547.001 (Run Keys), T1071.001 (C2 HTTP/S), T1110 (Brute Force),
+    T1070.001 (Log Clearing), T1055 (Process Injection), T1218 (LOLBins).
+
+    Each hit includes: rule_id, severity (CRITICAL/HIGH/MEDIUM), name, count,
+    confidence score (0.0-1.0), and fp_risk (low/medium/high).
+
+    Args:
+        db_path: Path to normalized SQLite from ingest_evidence_dir_tool.
+    """
+    import sqlite3
+    conn = sqlite3.connect(db_path)
+    hits = threat_hunt(conn)
+    conn.close()
+
+    serialized = []
+    for h in hits:
+        entry = {k: v for k, v in h.items() if k != "rows"}
+        sc = h.get("score")
+        if sc:
+            entry["confidence"] = round(sc.confidence, 2)
+            entry["fp_risk"]    = sc.fp_risk
+            entry["risk_label"] = sc.risk_label
+        # Include sample rows as records
+        df = h.get("rows")
+        if df is not None:
+            entry["sample_rows"] = df.head(5).to_dict("records")
+        serialized.append(entry)
+
+    return {
+        "ok":         True,
+        "db_path":    db_path,
+        "total_hits": len(serialized),
+        "critical":   sum(1 for h in serialized if h["severity"] == "CRITICAL"),
+        "high":       sum(1 for h in serialized if h["severity"] == "HIGH"),
+        "medium":     sum(1 for h in serialized if h["severity"] == "MEDIUM"),
+        "hits":       serialized,
+    }
+
+
+@mcp.tool()
+def correlate_ioc_tool(indicator: str, db_path: str) -> dict:
+    """
+    Cross-table pivot search for any IOC across all evidence tables.
+    LLM-free, sub-second. Searches by exact match (IPs) and text match (all else).
+
+    Searches across: events (source_ip, username, description),
+    processes (name, command_line, exe_path), network_connections (remote_address),
+    scheduled_tasks (task_name, command), registry_keys (key_path, value_data).
+
+    Args:
+        indicator: Any IOC — IP address, domain, username, process name, hash, registry path.
+        db_path:   Path to normalized SQLite from ingest_evidence_dir_tool.
+    """
+    import sqlite3
+    conn    = sqlite3.connect(db_path)
+    results = ioc_correlate(indicator, conn)
+    conn.close()
+
+    serialized: dict[str, list] = {}
+    for table, df in results.items():
+        serialized[table] = df.head(20).to_dict("records")
+
+    return {
+        "ok":        True,
+        "indicator": indicator,
+        "tables_hit": list(serialized.keys()),
+        "total_matches": sum(len(v) for v in serialized.values()),
+        "results":   serialized,
+    }
+
+
+@mcp.tool()
+def triage_case_tool(case_name: str, db_path: str,
+                      output_dir: str = "/tmp") -> dict:
+    """
+    Run a rapid triage on a forensic case database and classify severity.
+    Three-phase pipeline: SQL statistics (0s) → MITRE rules (0s) → LLM classification (~90s).
+
+    The LLM only classifies — all factual inputs come from deterministic SQL.
+    Severity scale: CRITICAL / HIGH / MEDIUM / LOW.
+    Returns: severity, confidence, attack_phase, top_indicators,
+             recommendation (in Spanish), needs_eil flag, and triage JSON path.
+
+    Automatically recommends investigate_case_tool when severity is HIGH or CRITICAL.
+
+    Args:
+        case_name:  Case identifier (e.g., "IR-2024-0622"). Used for output filename.
+        db_path:    Path to normalized SQLite from ingest_evidence_dir_tool.
+        output_dir: Where to save triage_<case>_<ts>.json (default /tmp).
+    """
+    return run_triage(case_name, db_path, output_dir)
+
+
+@mcp.tool()
+def investigate_case_tool(case_name: str, db_path: str,
+                           goal: str = "Determine what happened in this incident.",
+                           max_steps: int = 8) -> dict:
+    """
+    Run an autonomous Evidence Interrogation Loop (EIL) investigation.
+    A ReAct agent iterates up to max_steps, calling forensic tools autonomously:
+      threat_hunt → pivot_user/ip/process → sql_query → done
+
+    The agent uses real usernames and IPs from the case data (no hallucinations).
+    Returns a 4-5 sentence incident conclusion in Spanish + step-by-step trace.
+
+    Best used after triage_case_tool returns needs_eil=True.
+    Pair with generate_ir_report_tool to produce a full DOCX report.
+
+    Args:
+        case_name:  Case identifier for display in output.
+        db_path:    Path to normalized SQLite from ingest_evidence_dir_tool.
+        goal:       Investigation objective (default: "Determine what happened").
+        max_steps:  Maximum ReAct iterations (default 8, max recommended 12).
+    """
+    return investigate(case_name, db_path, goal, max_steps)
+
+
+@mcp.tool()
+def generate_ir_report_tool(case_name: str, db_path: str,
+                              eil_conclusion: str = "",
+                              triage_json_path: str = "",
+                              output_dir: str = "/tmp") -> dict:
+    """
+    Generate a NIST 800-61 Incident Response Report as a DOCX file.
+    Requires: pip install python-docx
+
+    8-section report: Executive Summary, Incident Scope, Timeline, MITRE ATT&CK,
+    IOCs, Key Findings, Recommendations, Forensic Gaps & Evidence Quality.
+
+    Two LLM calls: executive summary + recommendations. All other sections
+    are derived from deterministic SQL queries — no hallucinations in facts.
+
+    Args:
+        case_name:         Case identifier (e.g., "IR-2024-0622").
+        db_path:           Path to normalized SQLite from ingest_evidence_dir_tool.
+        eil_conclusion:    Output from investigate_case_tool (optional but recommended).
+        triage_json_path:  Path to triage JSON from triage_case_tool (optional).
+        output_dir:        Where to save the DOCX report (default /tmp).
+    """
+    return generate_report(case_name, db_path, eil_conclusion,
+                           triage_json_path, output_dir)
 
 
 @mcp.resource("dfirllama://sift/status")
