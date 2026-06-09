@@ -577,7 +577,11 @@ class DFIRLlamaAnalyst:
         from tools.sql_validator import validate_sql_query, build_correction_hint
         v = validate_sql_query(sql, conn)
 
+        first_hallucination_type: str | None = None
+        self_corrected = False
+
         if not v.valid:
+            first_hallucination_type = v.hallucination_type
             hint  = build_correction_hint(v, conn)
             retry = messages + [
                 {"role": "assistant", "content": raw},
@@ -590,10 +594,18 @@ class DFIRLlamaAnalyst:
                 v2 = validate_sql_query(sql2, conn)
                 if v2.valid:
                     sql, v = sql2, v2
+                    self_corrected = True
 
         if not v.valid:
             conn.close()
-            return {"ok": False, "error": "; ".join(v.errors), "sql": sql}
+            return {
+                "ok":    False,
+                "error": "; ".join(v.errors),
+                "sql":   sql,
+                "hallucination":            v.hallucination_type,
+                "first_hallucination_type": first_hallucination_type,
+                "self_corrected":           self_corrected,
+            }
 
         try:
             df = pd.read_sql(sql, conn)
@@ -605,10 +617,20 @@ class DFIRLlamaAnalyst:
                 "row_count": len(df),
                 "columns":   list(df.columns),
                 "result":    df,
+                "hallucination":            None,
+                "first_hallucination_type": first_hallucination_type,
+                "self_corrected":           self_corrected,
             }
         except Exception as e:
             conn.close()
-            return {"ok": False, "sql": sql, "error": f"Execution error: {e}"}
+            return {
+                "ok":    False,
+                "sql":   sql,
+                "error": f"Execution error: {e}",
+                "hallucination":            None,
+                "first_hallucination_type": first_hallucination_type,
+                "self_corrected":           self_corrected,
+            }
 
     def _detect_active_tables(self, conn: sqlite3.Connection) -> list[str]:
         """Return tables that exist and contain rows."""

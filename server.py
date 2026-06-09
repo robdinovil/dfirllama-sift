@@ -43,6 +43,7 @@ from tools.hunt import threat_hunt, ioc_correlate
 from tools.triage import run_triage
 from tools.eil import investigate
 from tools.report import generate_report
+from tools.benchmark import run as run_benchmark
 from llm.client import get_model_name
 
 # ── Inicializar servidor ──────────────────────────────────────────────────────
@@ -662,6 +663,60 @@ def generate_ir_report_tool(case_name: str, db_path: str,
     """
     return generate_report(case_name, db_path, eil_conclusion,
                            triage_json_path, output_dir)
+
+
+@mcp.tool()
+def benchmark_tool(db_path: str, output_dir: str = "/tmp",
+                   save_json: bool = True) -> dict:
+    """
+    Run the DFIRLlama NL→SQL benchmark against a forensic evidence database.
+    Evaluates all 25 ground-truth questions across 10 forensic categories
+    using 6 metrics derived from DFIR-Metric (arxiv 2505.19973) and RAGAS.
+
+    Metrics reported:
+      Score              — PASS/FAIL ratio (binary, 0.0-1.0)
+      TUS                — Task-level Understanding Score with partial credit (DFIR-Metric)
+      RS                 — Reliability Score: +1 correct / -2 wrong (DFIR-Metric)
+      CCR                — BM25 Context Recall without LLM judge (RAGAS NonLLM)
+      SCR                — Self-Correction Rate: % of hallucinations auto-fixed
+      Hallucination Rate — unresolved hallucinations / total questions
+
+    Best run after ingest_evidence_dir_tool so all 8 tables are populated.
+    Questions that require a table not present in the DB are automatically skipped.
+
+    Args:
+        db_path:    Path to normalized SQLite from ingest_evidence_dir_tool.
+        output_dir: Directory for the JSON report (default /tmp).
+        save_json:  Write detailed JSON report to output_dir (default True).
+    """
+    from pathlib import Path
+
+    out_path = str(Path(output_dir) / (Path(db_path).stem + "_benchmark.json")) if save_json else None
+    report   = run_benchmark(db_path, save_json=save_json, out_path=out_path)
+
+    return {
+        "ok":                   True,
+        "db_path":              db_path,
+        "model":                report.model,
+        "total_questions":      report.total,
+        # ── Core metrics ───────────────────────────────────────────────────
+        "score":                round(report.score, 3),
+        "tus_avg":              round(report.tus_avg, 3),
+        "reliability_score":    round(report.reliability_score, 3),
+        "context_recall_avg":   round(report.context_recall_avg, 3),
+        "self_correction_rate": round(report.self_correction_rate, 3),
+        "hallucination_rate":   round(report.hallucination_rate, 3),
+        # ── Detail ─────────────────────────────────────────────────────────
+        "passed":               report.passed,
+        "failed":               report.failed,
+        "self_corrections":     report.self_corrections,
+        "hallucinations":       report.hallucinations,
+        "avg_latency_s":        round(report.avg_latency, 1),
+        "p95_latency_s":        round(report.p95_latency, 1),
+        "elapsed_total_s":      report.elapsed_total_s,
+        "by_category":          report.by_category,
+        "report_path":          out_path,
+    }
 
 
 @mcp.resource("dfirllama://sift/status")
